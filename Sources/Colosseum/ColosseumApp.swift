@@ -47,6 +47,11 @@ struct ColosseumApp: App {
                 }
                 .keyboardShortcut(.return, modifiers: .command)
 
+                Button("Connect Board…") {
+                    NotificationCenter.default.post(name: .colosseumConnectBoard, object: nil)
+                }
+                .keyboardShortcut("b", modifiers: [.command, .shift])
+
                 Button("Rename Board…") {
                     NotificationCenter.default.post(name: .colosseumRename, object: nil)
                 }
@@ -127,6 +132,7 @@ extension Notification.Name {
     static let colosseumAdd = Notification.Name("colosseum.add")
     static let colosseumCommandReturn = Notification.Name("colosseum.commandReturn")
     static let colosseumRename = Notification.Name("colosseum.rename")
+    static let colosseumConnectBoard = Notification.Name("colosseum.connectBoard")
     static let colosseumPaste = Notification.Name("colosseum.paste")
     static let colosseumOpenFiles = Notification.Name("colosseum.openFiles")
     /// Context-sensitive ⌘O: open files on a local board, or open channel on Are.na when remote.

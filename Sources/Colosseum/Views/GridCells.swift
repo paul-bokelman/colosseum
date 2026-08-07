@@ -2,30 +2,6 @@ import AppKit
 import AVFoundation
 import SwiftUI
 
-struct AddBlockCell: View {
-    var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(ColosseumTheme.surface)
-            Image(systemName: "plus")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(ColosseumTheme.primaryText)
-            VStack {
-                Spacer()
-                HStack {
-                    Text("⌘↩")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(ColosseumTheme.tertiaryText)
-                        .padding(8)
-                    Spacer()
-                }
-            }
-        }
-        .aspectRatio(1, contentMode: .fit)
-        .blockTagBorder(tags: [], lineWidth: 1)
-    }
-}
-
 struct MediaBlockCell: View {
     let block: Block
     var isSelected: Bool = false
@@ -51,7 +27,7 @@ struct MediaBlockCell: View {
     }
 
     var body: some View {
-        // Size from a square surface (like AddBlockCell), never from media intrinsic size.
+        // Size from a square surface (like the inline add cell), never from media intrinsic size.
         // Cached thumb stays under live media so selection/hover does not reload-flash.
         ZStack(alignment: .bottomTrailing) {
             Rectangle()

@@ -18,6 +18,8 @@ struct MenuBarCaptureView: View {
     @State private var keyMonitor = KeyNavMonitor()
     @State private var pasteMonitor: Any?
     @State private var panelWindow: NSWindow?
+    @State private var focusRequest = 0
+    @State private var isTargeted = false
 
     @FocusState private var focus: FocusTarget?
 
@@ -56,6 +58,18 @@ struct MenuBarCaptureView: View {
         }
         .frame(width: 300)
         .fixedSize(horizontal: false, vertical: true)
+        .overlay {
+            if isTargeted {
+                Rectangle()
+                    .stroke(Color.white.opacity(0.5), lineWidth: 2)
+                    .padding(4)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: DropIngest.acceptedTypes, isTargeted: $isTargeted) { providers in
+            Task { await resolveFromDrop(providers) }
+            return true
+        }
         .onAppear {
             panelWindow = NSApp.keyWindow
             installKeys()
@@ -85,22 +99,46 @@ struct MenuBarCaptureView: View {
 
     private var idleBody: some View {
         VStack(alignment: .leading, spacing: 8) {
-            TextField("Paste URL or media…", text: $inputText)
-                .textFieldStyle(.roundedBorder)
-                .focused($focus, equals: .input)
-                .onSubmit { Task { await resolveFromInput() } }
+            ZStack {
+                ArenaInputField(
+                    text: $inputText,
+                    fontSize: 14,
+                    focusRequest: focusRequest,
+                    onSubmit: { Task { await resolveFromInput() } },
+                    onPasteMedia: { false }
+                )
+                .frame(height: 66)
+                .opacity(phase == .resolving ? 0.35 : 1)
                 .disabled(phase == .resolving)
 
-            if phase == .resolving {
-                Text("Resolving…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if inputText.isEmpty && phase != .resolving {
+                    Text(placeholder)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .tint(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 8)
+                        .environment(\.openURL, OpenURLAction { url in
+                            guard url.scheme == "colosseum" else { return .systemAction }
+                            openFiles()
+                            return .handled
+                        })
+                        .onTapGesture { focusRequest += 1 }
+                }
+
+                if phase == .resolving {
+                    ProgressView().controlSize(.small)
+                }
             }
 
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
+            } else {
+                Text(phase == .resolving ? "Resolving…" : "⌘↩ to continue")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.tertiary)
             }
 
             Divider()
@@ -159,12 +197,14 @@ struct MenuBarCaptureView: View {
                 Text("Adding…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-
-            if let errorMessage {
+            } else if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
+            } else {
+                Text("⌘↩ to add")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(12)
@@ -304,9 +344,66 @@ struct MenuBarCaptureView: View {
 
     // MARK: - Keys & paste
 
+    private var placeholder: AttributedString {
+        var result = AttributedString("Drop or ")
+        var choose = AttributedString("choose")
+        choose.link = URL(string: "colosseum://choose")
+        choose.underlineStyle = Text.LineStyle(pattern: .solid)
+        result += choose
+        result += AttributedString(" files, paste a URL or type text")
+        return result
+    }
+
+    private func openFiles() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [
+            .image, .movie, .audio, .mpeg4Movie, .quickTimeMovie,
+            .mp3, .mpeg4Audio, .wav, .aiff,
+            .png, .jpeg, .gif, .webP, .heic
+        ]
+        guard panel.runModal() == .OK, let url = panel.urls.first else { return }
+        present(draft: .localFile(url))
+    }
+
+    /// Drops reuse the resolve → pick board → notes flow.
+    private func resolveFromDrop(_ providers: [NSItemProvider]) async {
+        guard phase == .idle || phase == .resolving else { return }
+        let payload = await DropIngest.payload(from: providers)
+
+        if let url = payload.fileURLs.first {
+            present(draft: .localFile(url))
+            return
+        }
+        if let data = payload.imageData.first {
+            present(draft: .pastedImage(data))
+            return
+        }
+        guard let string = payload.strings.first?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !string.isEmpty
+        else { return }
+
+        guard ImportService.looksLikeURL(string) else {
+            present(draft: .text(string))
+            return
+        }
+
+        phase = .resolving
+        errorMessage = nil
+        do {
+            present(draft: try await ImportService.resolveURLString(string))
+        } catch {
+            phase = .idle
+            errorMessage = error.localizedDescription
+            focusInput()
+        }
+    }
+
     private func focusInput() {
         DispatchQueue.main.async {
             focus = .input
+            focusRequest += 1
         }
     }
 
@@ -327,8 +424,7 @@ struct MenuBarCaptureView: View {
         }
         keyMonitor.onEnter = {
             switch phase {
-            case .idle:
-                Task { await resolveFromInput() }
+            // .idle is owned by ArenaInputField: ↩ newlines, ⌘↩ submits.
             case .selectBoard:
                 advanceToNotes()
             case .notes:
@@ -368,15 +464,22 @@ struct MenuBarCaptureView: View {
         }
     }
 
-    /// Intercept ⌘V while the panel is open so the app's "Paste into Board" menu
-    /// shortcut doesn't steal it from the capture fields.
+    /// Intercept ⌘-shortcuts while the panel is open so the app's menu items
+    /// ("Paste into Board", "New Board or Add") don't steal them. Menu key
+    /// equivalents are processed before the responder chain, so without this
+    /// the capture field never sees ⌘↩ at all.
     private func installPasteMonitor() {
         removePasteMonitor()
         pasteMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
-            let isPaste = flags == .command
-                && event.charactersIgnoringModifiers?.lowercased() == "v"
-            guard isPaste else { return event }
+            guard flags == .command else { return event }
+
+            if event.keyCode == 36 || event.keyCode == 76 { // return / keypad enter
+                advanceFromCommandReturn()
+                return nil
+            }
+
+            guard event.charactersIgnoringModifiers?.lowercased() == "v" else { return event }
 
             switch phase {
             case .idle, .resolving:
@@ -389,6 +492,22 @@ struct MenuBarCaptureView: View {
                 return nil
             case .selectBoard, .committing, .success:
                 return nil
+            }
+        }
+    }
+
+    /// ⌘↩ drives the capture flow forward one step.
+    private func advanceFromCommandReturn() {
+        DispatchQueue.main.async {
+            switch phase {
+            case .idle:
+                Task { await resolveFromInput() }
+            case .selectBoard:
+                advanceToNotes()
+            case .notes:
+                Task { await commitSelected() }
+            case .resolving, .committing, .success:
+                break
             }
         }
     }
@@ -459,7 +578,8 @@ struct MenuBarCaptureView: View {
         phase = .resolving
         errorMessage = nil
         do {
-            let resolved = try await ImportService.resolveURLString(trimmed)
+            // Plain text becomes a note; only URLs are fetched.
+            let resolved = try await ImportService.resolveInput(trimmed)
             present(draft: resolved)
         } catch {
             phase = .idle

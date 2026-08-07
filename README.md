@@ -7,7 +7,7 @@ A private arena for the things you collect.
 Boards. Blocks. Connections.  
 Nothing leaves the machine.
 
-[Download for macOS](https://github.com/paul-bokelman/colosseum/releases/latest/download/Colosseum-1.9.0-macos.zip)
+[Download for macOS](https://github.com/paul-bokelman/colosseum/releases/latest/download/Colosseum-1.10.0-macos.zip)
 
 ## What it is
 
@@ -20,6 +20,7 @@ Built with Swift, SwiftUI, and SwiftData. Requires **macOS 14+**.
 - **Boards** — organize collections; nest boards inside boards
 - **Blocks** — images, video, audio, links, text, and Are.na channel previews
 - **Connections** — attach blocks (and nested boards) to boards with notes and tags
+- **Inline capture** — the first cell of every board is the input: drop, choose, paste, or type, then ⌘↩
 - **Menu bar capture** — drop URLs, paste images/files, or resolve links without opening the main window
 - **Are.na import** — pull a public Are.na channel into a local board
 - **Search & tags** — find blocks and annotate with tagged notes

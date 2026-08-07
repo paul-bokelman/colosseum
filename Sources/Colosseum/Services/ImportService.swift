@@ -117,6 +117,22 @@ enum ImportService {
 
     // MARK: - Resolve / commit
 
+    /// True when input should be fetched as a URL rather than kept as a note.
+    /// Multi-line input is always text.
+    static func looksLikeURL(_ string: String) -> Bool {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.contains(where: \.isNewline) else { return false }
+        return trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")
+    }
+
+    /// Resolves typed input: a URL is fetched, anything else becomes a text block.
+    static func resolveInput(_ string: String) async throws -> CaptureDraft {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw ImportError.failed("Nothing to add") }
+        guard looksLikeURL(trimmed) else { return .text(trimmed) }
+        return try await resolveURLString(trimmed)
+    }
+
     static func resolveURLString(_ string: String) async throws -> CaptureDraft {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ImportError.failed("Empty URL") }
@@ -432,6 +448,27 @@ enum ImportService {
         guard !trimmed.isEmpty else { return }
         let draft = try await resolveURLString(trimmed)
         try await commit(draft, into: board, context: context)
+    }
+
+    /// Commits a drag-and-drop payload: files, URLs, text, and raw image bytes.
+    static func importPayload(_ payload: DropPayload, into board: Board, context: ModelContext) async throws {
+        if !payload.fileURLs.isEmpty {
+            try await importFiles(payload.fileURLs, into: board, context: context)
+        }
+
+        for data in payload.imageData {
+            try await commit(.pastedImage(data), into: board, context: context)
+        }
+
+        for string in payload.strings {
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
+                try await importURLString(trimmed, into: board, context: context)
+            } else {
+                addTextBlock(trimmed, title: "", into: board, context: context)
+            }
+        }
     }
 
     static func importPasteboard(into board: Board, context: ModelContext) async throws {

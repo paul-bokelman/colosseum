@@ -30,7 +30,10 @@ struct BoardOverviewView: View {
     @State private var selectedConnectionID: UUID?
     @State private var arenaBrowseTarget: ArenaBrowseTarget?
     @State private var arenaStack: [ArenaBrowseTarget] = []
-    @State private var showAddSheet = false
+    /// Scroll/identity anchor for the inline add cell.
+    private static let addCellID = "colosseum.addCell"
+    @State private var addActivateRequest = 0
+    @State private var showConnectBoard = false
     @State private var showRename = false
     @State private var renameTitle = ""
     @State private var isImporting = false
@@ -269,7 +272,7 @@ struct BoardOverviewView: View {
     var body: some View {
         applyBoardInteractions(to: applyBoardChrome(to: boardStack))
             .animation(ColosseumMotion.overlay, value: showBoardSearch)
-            .onReceive(NotificationCenter.default.publisher(for: .colosseumSearch)) { _ in
+            .onNotification(.colosseumSearch) {
                 toggleBoardSearch()
             }
             .onChange(of: showBoardSearch) { _, searching in
@@ -435,8 +438,8 @@ struct BoardOverviewView: View {
                 }
             }
             .onExitCommand(perform: handleEscape)
-            .sheet(isPresented: $showAddSheet) {
-                AddContentSheet(board: board)
+            .sheet(isPresented: $showConnectBoard) {
+                ConnectBoardSheet(board: board)
             }
             .alert("Rename Board", isPresented: $showRename) {
                 TextField("Title", text: $renameTitle)
@@ -448,7 +451,7 @@ struct BoardOverviewView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
-            .onDrop(of: [.fileURL, .url, .plainText, .image, .png, .tiff], isTargeted: $isTargeted) { providers in
+            .onDrop(of: DropIngest.acceptedTypes, isTargeted: $isTargeted) { providers in
                 _ = handleDrop(providers)
                 return true
             }
@@ -460,27 +463,30 @@ struct BoardOverviewView: View {
                         .allowsHitTesting(false)
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .colosseumAdd)) { _ in
-                showAddSheet = true
+            .onNotification(.colosseumAdd) {
+                addActivateRequest += 1
             }
-            .onReceive(NotificationCenter.default.publisher(for: .colosseumRename)) { _ in
+            .onNotification(.colosseumConnectBoard) {
+                showConnectBoard = true
+            }
+            .onNotification(.colosseumRename) {
                 renameTitle = board.title
                 showRename = true
             }
-            .onReceive(NotificationCenter.default.publisher(for: .colosseumColumnsIncrease)) { _ in
+            .onNotification(.colosseumColumnsIncrease) {
                 adjustColumns(by: 1)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .colosseumColumnsDecrease)) { _ in
+            .onNotification(.colosseumColumnsDecrease) {
                 adjustColumns(by: -1)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .colosseumPaste)) { _ in
+            .onNotification(.colosseumPaste) {
                 Task { await paste() }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .colosseumOpenCommand)) { _ in
+            .onNotification(.colosseumOpenCommand) {
                 guard arenaBrowseTarget == nil else { return }
                 openFiles()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .colosseumOpenFiles)) { _ in
+            .onNotification(.colosseumOpenFiles) {
                 guard arenaBrowseTarget == nil else { return }
                 openFiles()
             }
@@ -1202,16 +1208,14 @@ struct BoardOverviewView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVGrid(columns: columns, spacing: ColosseumTheme.gridGap) {
-                    Button {
-                        guard !shouldSuppressGridClicks else { return }
-                        showAddSheet = true
-                    } label: {
-                        GridBlockChrome(notes: "", showsNotes: showGridNotes) {
-                            AddBlockCell()
-                        }
+                    GridBlockChrome(notes: "", showsNotes: showGridNotes) {
+                        InlineAddBlockView(
+                            board: board,
+                            activateRequest: addActivateRequest,
+                            onError: { errorMessage = $0 }
+                        )
                     }
-                    .buttonStyle(.plain)
-                    .pointingHandCursor()
+                    .id(Self.addCellID)
 
                     ForEach(filteredConnections, id: \.id) { connection in
                         let isFocus = connection.id == gridFocusID
@@ -1255,6 +1259,12 @@ struct BoardOverviewView: View {
                 }
                 .allowsHitTesting(isAssigningTag)
             }
+            .onChange(of: addActivateRequest) { _, _ in
+                // Bring the add cell on screen so it exists to take focus.
+                withAnimation(ColosseumMotion.soft) {
+                    proxy.scrollTo(Self.addCellID, anchor: .top)
+                }
+            }
             .onChange(of: gridFocusID) { _, id in
                 guard let id, isBrowsingGrid else { return }
                 withAnimation(ColosseumMotion.soft) {
@@ -1276,16 +1286,14 @@ struct BoardOverviewView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVGrid(columns: columns, spacing: ColosseumTheme.gridGap) {
-                    Button {
-                        guard !shouldSuppressGridClicks else { return }
-                        showAddSheet = true
-                    } label: {
-                        GridBlockChrome(notes: "", showsNotes: showGridNotes) {
-                            AddBlockCell()
-                        }
+                    GridBlockChrome(notes: "", showsNotes: showGridNotes) {
+                        InlineAddBlockView(
+                            board: board,
+                            activateRequest: addActivateRequest,
+                            onError: { errorMessage = $0 }
+                        )
                     }
-                    .buttonStyle(.plain)
-                    .pointingHandCursor()
+                    .id(Self.addCellID)
 
                     ForEach(flattenedEntries) { entry in
                         flattenedEntryCell(entry)
@@ -1314,6 +1322,11 @@ struct BoardOverviewView: View {
                         .background(ColosseumTheme.elevated)
                         .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
                         .padding(.bottom, 20)
+                }
+            }
+            .onChange(of: addActivateRequest) { _, _ in
+                withAnimation(ColosseumMotion.soft) {
+                    proxy.scrollTo(Self.addCellID, anchor: .top)
                 }
             }
             .onChange(of: flattenedFocusID) { _, id in
@@ -1659,58 +1672,9 @@ struct BoardOverviewView: View {
             isImporting = true
             defer { isImporting = false }
             do {
-                var fileURLs: [URL] = []
-                var strings: [String] = []
-
-                for provider in providers {
-                    if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-                        if let url = try await loadFileURL(from: provider) {
-                            fileURLs.append(url)
-                        }
-                    } else if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                        if let url = try await loadURL(from: provider) {
-                            if url.isFileURL {
-                                fileURLs.append(url)
-                            } else {
-                                strings.append(url.absoluteString)
-                            }
-                        }
-                    } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                        if let text = try await loadString(from: provider) {
-                            strings.append(text)
-                        }
-                    } else if provider.hasItemConformingToTypeIdentifier(UTType.gif.identifier),
-                              let data = try await loadData(from: provider, type: .gif) {
-                        try await importImageData(data, filename: "drop.gif", mimeType: "image/gif")
-                    } else if provider.hasItemConformingToTypeIdentifier(UTType.png.identifier),
-                              let data = try await loadData(from: provider, type: .png) {
-                        try await importImageData(data, filename: "drop.png", mimeType: "image/png")
-                    } else if provider.canLoadObject(ofClass: NSImage.self) {
-                        let image = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<NSImage, Error>) in
-                            _ = provider.loadObject(ofClass: NSImage.self) { object, error in
-                                if let error { cont.resume(throwing: error); return }
-                                guard let image = object as? NSImage else {
-                                    cont.resume(throwing: ImportService.ImportError.failed("Invalid image"))
-                                    return
-                                }
-                                cont.resume(returning: image)
-                            }
-                        }
-                        try await importImage(image)
-                    }
-                }
-
-                if !fileURLs.isEmpty {
-                    try await ImportService.importFiles(fileURLs, into: board, context: context)
-                }
-                for string in strings {
-                    let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
-                        try await ImportService.importURLString(trimmed, into: board, context: context)
-                    } else if !trimmed.isEmpty {
-                        ImportService.addTextBlock(trimmed, title: "", into: board, context: context)
-                    }
-                }
+                let payload = await DropIngest.payload(from: providers)
+                guard !payload.isEmpty else { return }
+                try await ImportService.importPayload(payload, into: board, context: context)
                 try context.save()
             } catch {
                 errorMessage = error.localizedDescription
@@ -1718,89 +1682,12 @@ struct BoardOverviewView: View {
         }
         return true
     }
+}
 
-    private func importImage(_ image: NSImage) async throws {
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let data = rep.representation(using: .png, properties: [:])
-        else { throw ImportService.ImportError.failed("Could not read image") }
-
-        try await importImageData(data, filename: "drop.png", mimeType: "image/png")
-    }
-
-    private func importImageData(_ data: Data, filename: String, mimeType: String) async throws {
-        let blockID = UUID()
-        let dest = try MediaLibrary.writeData(data, into: blockID, filename: filename)
-        let (w, h) = ThumbnailService.imageDimensions(at: dest)
-        let thumb = try ThumbnailService.generateImageThumbnail(from: dest, blockID: blockID)
-        let block = Block(
-            id: blockID,
-            kind: .image,
-            title: "Dropped image",
-            localRelativePath: MediaLibrary.relativePath(from: dest),
-            thumbRelativePath: thumb.map { MediaLibrary.relativePath(from: $0) },
-            mimeType: mimeType,
-            byteSize: Int64(data.count),
-            width: w,
-            height: h
-        )
-        context.insert(block)
-        ImportService.connect(block: block, to: board, context: context)
-    }
-
-    private func loadData(from provider: NSItemProvider, type: UTType) async throws -> Data? {
-        try await withCheckedThrowingContinuation { cont in
-            provider.loadDataRepresentation(forTypeIdentifier: type.identifier) { data, error in
-                if let error { cont.resume(throwing: error); return }
-                cont.resume(returning: data)
-            }
-        }
-    }
-
-    private func loadFileURL(from provider: NSItemProvider) async throws -> URL? {
-        try await withCheckedThrowingContinuation { cont in
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
-                if let error { cont.resume(throwing: error); return }
-                if let data = item as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    cont.resume(returning: url)
-                } else if let url = item as? URL {
-                    cont.resume(returning: url)
-                } else {
-                    cont.resume(returning: nil)
-                }
-            }
-        }
-    }
-
-    private func loadURL(from provider: NSItemProvider) async throws -> URL? {
-        try await withCheckedThrowingContinuation { cont in
-            provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, error in
-                if let error { cont.resume(throwing: error); return }
-                if let url = item as? URL {
-                    cont.resume(returning: url)
-                } else if let data = item as? Data,
-                          let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    cont.resume(returning: url)
-                } else {
-                    cont.resume(returning: nil)
-                }
-            }
-        }
-    }
-
-    private func loadString(from provider: NSItemProvider) async throws -> String? {
-        try await withCheckedThrowingContinuation { cont in
-            provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, error in
-                if let error { cont.resume(throwing: error); return }
-                if let string = item as? String {
-                    cont.resume(returning: string)
-                } else if let data = item as? Data, let string = String(data: data, encoding: .utf8) {
-                    cont.resume(returning: string)
-                } else {
-                    cont.resume(returning: nil)
-                }
-            }
-        }
+extension View {
+    /// Shorthand for NotificationCenter observation; keeps long view-modifier
+    /// chains inside the type-checker's budget.
+    func onNotification(_ name: Notification.Name, perform action: @escaping () -> Void) -> some View {
+        onReceive(NotificationCenter.default.publisher(for: name)) { _ in action() }
     }
 }
