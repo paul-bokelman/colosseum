@@ -192,7 +192,7 @@ struct PlayerView: NSViewRepresentable {
         view.player = player
         // Avoid the default grey letterbox flash before the first frame.
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.black.cgColor
+        view.layer?.backgroundColor = ColosseumTheme.nsCanvas.cgColor
         return view
     }
 

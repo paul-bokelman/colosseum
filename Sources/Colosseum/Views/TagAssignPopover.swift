@@ -19,15 +19,15 @@ struct TagAssignPopover: View {
     var onToggle: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Space.s2) {
             if tags.isEmpty {
                 Text("No tags on this board")
-                    .font(.system(size: 11))
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.tertiaryText)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView(.vertical) {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: Space.s2) {
                             ForEach(tags, id: \.self) { tag in
                                 let key = TagParser.normalize(tag)
                                 TagPill(
@@ -48,12 +48,12 @@ struct TagAssignPopover: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Space.s3)
+        .padding(.vertical, Space.s3)
         .frame(width: 176, alignment: .leading)
         .background(ColosseumTheme.surface)
         .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
-        .shadow(color: .black.opacity(0.45), radius: 16, y: 8)
+        .floatingPanelShadow()
     }
 
     private func scrollToFocused(using proxy: ScrollViewProxy) {

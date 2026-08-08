@@ -11,7 +11,7 @@ struct InlineAddBlockView: View {
     @Environment(\.modelContext) private var context
 
     let board: Board
-    /// Bumped by the board when ⌘↩ / "Add to Board…" fires.
+    /// Bumped by the board when ⌘↩ / "Add to board…" fires.
     var activateRequest: Int
     var onError: (String) -> Void = { _ in }
 
@@ -24,7 +24,7 @@ struct InlineAddBlockView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let fontSize = max(11, min(20, proxy.size.width * 0.075))
+            let fontSize = TypeScale.snap(max(TypeScale.t0, min(TypeScale.t4, proxy.size.width * 0.075)))
 
             ZStack {
                 Rectangle()
@@ -39,8 +39,8 @@ struct InlineAddBlockView: View {
                     onFocusChange: { isFocused = $0 },
                     onEscape: blur
                 )
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Space.s3)
+                .padding(.vertical, Space.s2)
                 .opacity(isBusy ? 0.25 : 1)
                 .disabled(isBusy)
 
@@ -62,7 +62,7 @@ struct InlineAddBlockView: View {
         .overlay {
             if isTargeted || isFocused {
                 Rectangle()
-                    .stroke(Color.white.opacity(isTargeted ? 0.6 : 0.3), lineWidth: isTargeted ? 2 : 1)
+                    .stroke(isTargeted ? ColosseumTheme.primaryText : ColosseumTheme.borderStrong, lineWidth: 1)
                     .allowsHitTesting(false)
             }
         }
@@ -85,7 +85,7 @@ struct InlineAddBlockView: View {
             .multilineTextAlignment(.center)
             .lineSpacing(2)
             .minimumScaleFactor(0.6)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Space.s3)
             .allowsHitTesting(true)
             .environment(\.openURL, OpenURLAction { url in
                 guard url.scheme == "colosseum" else { return .systemAction }
@@ -112,9 +112,9 @@ struct InlineAddBlockView: View {
             Spacer()
             HStack {
                 Text(hint)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .font(.system(size: TypeScale.t0, design: .monospaced))
                     .foregroundStyle(ColosseumTheme.tertiaryText)
-                    .padding(8)
+                    .padding(Space.s2)
                 Spacer()
             }
         }
@@ -221,7 +221,7 @@ struct InlineAddBlockView: View {
         }
     }
 
-    /// The app binds ⌘V to "Paste into Board"; while this cell is focused the
+    /// The app binds ⌘V to "Paste into board"; while this cell is focused the
     /// paste belongs to the field instead.
     private func installPasteMonitor() {
         removePasteMonitor()

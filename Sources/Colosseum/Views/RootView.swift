@@ -89,12 +89,13 @@ struct RootView: View {
             }
         }
         .animation(ColosseumMotion.overlay, value: arenaBrowseTarget?.slug)
-        .sheet(isPresented: $showNewBoardSheet) {
-            NewBoardSheet { title in
-                createBoard(title: title)
-            }
+        .modalOverlay(isPresented: $showNewBoardSheet) {
+            NewBoardSheet(
+                onCreate: { title in createBoard(title: title) },
+                onDismiss: { showNewBoardSheet = false }
+            )
         }
-        .sheet(isPresented: $showImportArena) {
+        .modalOverlay(isPresented: $showImportArena) {
             ImportArenaSheet(
                 onImported: { board in
                     openBoard(board.id)
@@ -104,7 +105,8 @@ struct RootView: View {
                         arenaStack = [target]
                         arenaBrowseTarget = target
                     }
-                }
+                },
+                onDismiss: { showImportArena = false }
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: .colosseumNewBoard)) { _ in

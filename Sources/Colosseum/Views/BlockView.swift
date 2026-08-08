@@ -76,19 +76,15 @@ struct BlockView: View {
                 .frame(width: ColosseumTheme.sidebarWidth)
         }
         .background(ColosseumTheme.canvas)
-        .overlay(alignment: .bottomTrailing) {
-            HStack(spacing: 10) {
-                ShortcutHint(text: "←")
-                ShortcutHint(text: "→")
-                ShortcutHint(text: "↑↓")
-                ShortcutHint(text: "↩")
-                ShortcutHint(text: "⌘C")
-                ShortcutHint(text: "c")
-                ShortcutHint(text: "tab")
-                ShortcutHint(text: "esc")
+        .overlay(alignment: .bottomLeading) {
+            if let block {
+                metaButton(for: block)
+                    .padding(Space.s3)
             }
-            .padding(16)
-            .allowsHitTesting(false)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            shortcutHints
+                .padding(Space.s3)
         }
         .focusable()
         .focused($focused)
@@ -115,6 +111,7 @@ struct BlockView: View {
             if isPresented {
                 keyMonitor.remove()
             } else {
+                focused = true
                 installKeyMonitor()
             }
         }
@@ -171,9 +168,14 @@ struct BlockView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
         }
-        .sheet(isPresented: $showConnect) {
+        .modalOverlay(isPresented: $showConnect) {
             if let block {
-                ConnectSheet(block: block, nestedBoard: nil, excludeBoardID: nil)
+                ConnectOverlay(
+                    block: block,
+                    nestedBoard: nil,
+                    excludeBoardID: nil,
+                    onDismiss: { showConnect = false }
+                )
             }
         }
     }
@@ -209,6 +211,10 @@ struct BlockView: View {
             showConnect = false
             return
         }
+        if showMeta {
+            withAnimation(ColosseumMotion.soft) { showMeta = false }
+            return
+        }
         // Notes focused: first Esc blurs the field; second closes preview.
         if KeyNavMonitor.isEditingText {
             NSApp.keyWindow?.makeFirstResponder(nil)
@@ -221,7 +227,7 @@ struct BlockView: View {
     @ViewBuilder
     private var mediaPane: some View {
         ZStack {
-            Color.black
+            ColosseumTheme.canvas
             if let block {
                 mediaContent(for: block)
                     .id(block.id)
@@ -240,12 +246,12 @@ struct BlockView: View {
                 if block.isAnimatedImage || AnimatedImage.isAnimated(at: url) {
                     AnimatedImageView(url: url)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(24)
+                        .padding(Space.s5)
                 } else if let image = NSImage(contentsOf: url) {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
-                        .padding(24)
+                        .padding(Space.s5)
                 }
             } else if let urlString = block.remoteMediaURL ?? block.remoteThumbnailURL,
                       let url = URL(string: urlString) {
@@ -265,15 +271,15 @@ struct BlockView: View {
         case .video:
             if let loopingPlayer {
                 PlayerView(player: loopingPlayer.player)
-                    .padding(24)
+                    .padding(Space.s5)
             }
         case .audio:
-            VStack(spacing: 20) {
+            VStack(spacing: Space.s4) {
                 Image(systemName: "waveform")
-                    .font(.system(size: 44, weight: .light))
+                    .font(.system(size: TypeScale.t8))
                     .foregroundStyle(ColosseumTheme.secondaryText)
                 Text(block.displayTitle)
-                    .font(.title2)
+                    .font(.system(size: TypeScale.t4))
                     .foregroundStyle(ColosseumTheme.primaryText)
                     .multilineTextAlignment(.center)
                 if let loopingPlayer {
@@ -282,35 +288,35 @@ struct BlockView: View {
                         .frame(height: 64)
                 }
             }
-            .padding(40)
+            .padding(Space.s7)
         case .text:
             ScrollView {
                 Text(block.textBody)
-                    .font(.system(size: 18))
+                    .font(.system(size: TypeScale.t4))
                     .foregroundStyle(ColosseumTheme.primaryText)
                     .frame(maxWidth: 640, alignment: .leading)
-                    .padding(40)
+                    .padding(Space.s7)
             }
         case .link:
-            VStack(spacing: 16) {
+            VStack(spacing: Space.s3) {
                 Image(systemName: "link")
-                    .font(.system(size: 36, weight: .light))
+                    .font(.system(size: TypeScale.t7))
                     .foregroundStyle(ColosseumTheme.secondaryText)
                 Text(block.displayTitle)
-                    .font(.title2)
+                    .font(.system(size: TypeScale.t4))
                     .foregroundStyle(ColosseumTheme.primaryText)
                     .multilineTextAlignment(.center)
                 if let source = block.sourceURL, let url = URL(string: source) {
-                    Button("Open Link") { NSWorkspace.shared.open(url) }
+                    Button("Open link") { NSWorkspace.shared.open(url) }
                         .buttonStyle(ChromeButtonStyle(emphasized: true))
                         .pointingHandCursor()
                 }
             }
-            .padding(40)
+            .padding(Space.s7)
         case .arenaChannel:
-            VStack(spacing: 12) {
+            VStack(spacing: Space.s2) {
                 Text(block.title)
-                    .font(.title)
+                    .font(.system(size: TypeScale.t5))
                     .foregroundStyle(ColosseumTheme.remoteBoardTitle)
                 if let owner = block.arenaOwnerName {
                     Text("by \(owner)")
@@ -323,7 +329,7 @@ struct BlockView: View {
                     Button("Open on Are.na") { NSWorkspace.shared.open(url) }
                         .buttonStyle(ChromeButtonStyle(emphasized: true))
                         .pointingHandCursor()
-                        .padding(.top, 8)
+                        .padding(.top, Space.s2)
                 }
             }
         }
@@ -334,7 +340,7 @@ struct BlockView: View {
             if let block {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: Space.s3) {
                         notesSection(for: block)
 
                         if block.kind == .text {
@@ -342,34 +348,25 @@ struct BlockView: View {
                                 get: { block.textBody },
                                 set: { block.textBody = $0 }
                             ))
-                            .font(.system(size: 13))
+                            .font(.system(size: TypeScale.t2))
                             .frame(minHeight: 100)
                             .scrollContentBackground(.hidden)
-                            .padding(8)
+                            .padding(Space.s2)
                             .background(ColosseumTheme.surface)
-                            .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 0.5))
+                            .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
                         }
 
                         actionRow(for: block)
-                            .overlay(alignment: .topTrailing) {
-                                if showMeta {
-                                    metaOverlay(for: block)
-                                        .fixedSize()
-                                        .offset(y: 36)
-                                        .transition(ColosseumMotion.fade)
-                                }
-                            }
-                            .zIndex(2)
 
                             Text("Connections \(connectionCount)")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: TypeScale.t1))
                             .foregroundStyle(ColosseumTheme.secondaryText)
-                            .padding(.top, 8)
+                            .padding(.top, Space.s2)
 
                             connectionsList()
                         }
-                        .padding(16)
-                        .padding(.bottom, 24)
+                        .padding(Space.s3)
+                        .padding(.bottom, Space.s5)
                     }
                     .onChange(of: focusedConnectionScrollID) { _, id in
                         guard let id else { return }
@@ -387,11 +384,29 @@ struct BlockView: View {
 
     @ViewBuilder
     private func actionRow(for block: Block) -> some View {
-        HStack(spacing: 8) {
-            Button("Connect →") { showConnect = true }
-                .buttonStyle(ChromeButtonStyle(emphasized: true))
-                .pointingHandCursor()
+        // The icon cluster grows with the block's capabilities. Rather than let a
+        // full row squeeze the Connect label, drop the icons onto their own line.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Space.s2) {
+                connectButton
+                actionIcons(for: block)
+            }
+            VStack(alignment: .leading, spacing: Space.s2) {
+                connectButton
+                HStack(spacing: Space.s2) { actionIcons(for: block) }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
+    private var connectButton: some View {
+        Button("Connect →") { showConnect = true }
+            .buttonStyle(ChromeButtonStyle(emphasized: true))
+            .pointingHandCursor()
+    }
+
+    @ViewBuilder
+    private func actionIcons(for block: Block) -> some View {
             if let path = block.localRelativePath {
                 let url = MediaLibrary.absoluteURL(relativePath: path)
                 Button {
@@ -420,7 +435,7 @@ struct BlockView: View {
                     Image(systemName: "link")
                 }
                 .buttonStyle(ChromeIconButtonStyle())
-                .help("Open Source URL")
+                .help("Open source URL")
                 .pointingHandCursor()
             }
 
@@ -464,11 +479,8 @@ struct BlockView: View {
                 Image(systemName: "trash")
             }
             .buttonStyle(ChromeIconButtonStyle())
-            .help("Remove from Board")
+            .help("Remove from board")
             .pointingHandCursor()
-
-            metaButton(for: block)
-        }
     }
 
     @ViewBuilder
@@ -479,7 +491,7 @@ struct BlockView: View {
                 get: { block.notes },
                 set: { block.notes = $0 }
             ),
-            placeholder: "notes...",
+            placeholder: "notes…",
             suggestionTags: suggestions.tags,
             suggestionCounts: suggestions.counts,
             onTagTap: onTagTap,
@@ -488,6 +500,20 @@ struct BlockView: View {
         )
         .frame(minHeight: 72, maxHeight: 160)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var shortcutHints: some View {
+        HStack(spacing: Space.s2) {
+            ShortcutHint(text: "←")
+            ShortcutHint(text: "→")
+            ShortcutHint(text: "↑↓")
+            ShortcutHint(text: "↩")
+            ShortcutHint(text: "⌘C")
+            ShortcutHint(text: "c")
+            ShortcutHint(text: "tab")
+            ShortcutHint(text: "esc")
+        }
+        .allowsHitTesting(false)
     }
 
     @ViewBuilder
@@ -502,16 +528,20 @@ struct BlockView: View {
         .buttonStyle(ChromeIconButtonStyle(active: showMeta))
         .help("Metadata")
         .pointingHandCursor()
-        .onHover { hovering in
-            withAnimation(ColosseumMotion.soft) {
-                showMeta = hovering
+        .overlay(alignment: .bottomLeading) {
+            if showMeta {
+                metaOverlay(for: block)
+                    .fixedSize()
+                    // Sits on top of the bar, left edge flush with the button.
+                    .offset(y: -(ChromeMetrics.controlHeight + Space.s2))
+                    .transition(ColosseumMotion.fade)
             }
         }
     }
 
     @ViewBuilder
     private func metaOverlay(for block: Block) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Space.s2) {
             TextField("Title", text: Binding(
                 get: { block.title },
                 set: {
@@ -520,16 +550,16 @@ struct BlockView: View {
                 }
             ))
             .textFieldStyle(.plain)
-            .font(.system(size: 13, weight: .medium))
+            .font(.system(size: TypeScale.t2))
             .foregroundStyle(ColosseumTheme.primaryText)
 
             metaTable(for: block)
         }
-        .padding(12)
+        .padding(Space.s3)
         .frame(width: 260, alignment: .leading)
         .background(ColosseumTheme.elevated)
         .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
-        .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
+        .floatingPanelShadow()
         .allowsHitTesting(true)
     }
 
@@ -537,9 +567,9 @@ struct BlockView: View {
     private func metaTable(for block: Block) -> some View {
         VStack(spacing: 0) {
             metaRow("Added", ColosseumFormatters.relativeDate(block.createdAt))
-            metaRow("Content Type", block.contentTypeLabel)
+            metaRow("Content type", block.contentTypeLabel)
             if block.byteSize > 0 {
-                metaRow("File Size", ColosseumFormatters.byteCount(block.byteSize))
+                metaRow("File size", ColosseumFormatters.byteCount(block.byteSize))
             }
             if block.width > 0, block.height > 0 {
                 metaRow("Dimensions", "\(block.width) × \(block.height)")
@@ -565,17 +595,17 @@ struct BlockView: View {
     private func metaRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .top) {
             Text(label)
-                .font(.system(size: 12))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
                 .frame(width: 96, alignment: .leading)
             Text(value)
-                .font(.system(size: 12))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.primaryText)
                 .textSelection(.enabled)
                 .lineLimit(3)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, Space.s2)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(ColosseumTheme.border)
@@ -585,7 +615,7 @@ struct BlockView: View {
 
     private func connectionsList() -> some View {
         let localItems = boardConnections
-        return VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: Space.s1) {
             ForEach(Array(localItems.enumerated()), id: \.element.connection.id) { index, item in
                 let isFocused = connectionFocusIndex == index
                 Button {
@@ -593,22 +623,22 @@ struct BlockView: View {
                     onOpenBoard(item.board)
                 } label: {
                     HStack {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Space.nudge) {
                             Text(item.board.title.isEmpty ? "Untitled" : item.board.title)
                                 .foregroundStyle(
                                     isFocused ? ColosseumTheme.primaryText : ColosseumTheme.secondaryText
                                 )
                                 .fontWeight(isFocused ? .medium : .regular)
                             Text("\(item.board.contentCount) · \(ColosseumFormatters.relativeDate(item.connection.createdAt))")
-                                .font(.caption)
+                                .font(.system(size: TypeScale.t0))
                                 .foregroundStyle(ColosseumTheme.tertiaryText)
                         }
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, Space.s2)
+                    .padding(.vertical, Space.s1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(isFocused ? Color.white.opacity(0.08) : Color.clear)
+                    .background(isFocused ? ColosseumTheme.surface : Color.clear)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -625,7 +655,7 @@ struct BlockView: View {
                     browseRemoteConnection(connection)
                 } label: {
                     HStack {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Space.nudge) {
                             Text(connection.title)
                                 .foregroundStyle(
                                     isFocused
@@ -642,15 +672,15 @@ struct BlockView: View {
                                 .compactMap { $0 }
                                 .joined(separator: " · ")
                             )
-                            .font(.caption)
+                            .font(.system(size: TypeScale.t0))
                             .foregroundStyle(ColosseumTheme.tertiaryText)
                         }
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, Space.s2)
+                    .padding(.vertical, Space.s1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(isFocused ? Color.white.opacity(0.08) : Color.clear)
+                    .background(isFocused ? ColosseumTheme.surface : Color.clear)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -662,20 +692,20 @@ struct BlockView: View {
             if isLoadingRemoteConnections && remoteConnections.isEmpty {
                 ProgressView()
                     .controlSize(.small)
-                    .padding(.top, 8)
+                    .padding(.top, Space.s2)
             } else if let remoteConnectionsError, localItems.isEmpty && remoteConnections.isEmpty {
                 Text(remoteConnectionsError)
-                    .font(.caption)
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.tertiaryText)
-                    .padding(.top, 8)
+                    .padding(.top, Space.s2)
             } else if localItems.isEmpty && remoteConnections.isEmpty {
                 Text("Not connected to any boards.")
-                    .font(.caption)
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.tertiaryText)
-                    .padding(.top, 8)
+                    .padding(.top, Space.s2)
             }
         }
-        .padding(.top, 4)
+        .padding(.top, Space.s1)
     }
 
     private func moveConnectionFocus(_ delta: Int) {

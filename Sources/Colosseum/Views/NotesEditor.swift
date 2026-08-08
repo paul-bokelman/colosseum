@@ -4,7 +4,7 @@ import SwiftUI
 /// Plain, borderless notes field with live #tag coloring, autocomplete, and ⌘-click to filter.
 struct NotesEditor: NSViewRepresentable {
     @Binding var text: String
-    var placeholder: String = "notes..."
+    var placeholder: String = "notes…"
     /// Popularity-ranked board tags for `#` autocomplete (existing tags only).
     var suggestionTags: [String] = []
     /// Normalized tag → how many board items currently use it.
@@ -38,7 +38,7 @@ struct NotesEditor: NSViewRepresentable {
         textView.drawsBackground = false
         textView.backgroundColor = .clear
         textView.textColor = NSColor(ColosseumTheme.secondaryText)
-        textView.insertionPointColor = NSColor.white
+        textView.insertionPointColor = ColosseumTheme.nsPrimaryText
         textView.font = .systemFont(ofSize: 13)
         textView.typingAttributes = Coordinator.baseTypingAttributes
         textView.textContainerInset = NSSize(width: 0, height: 2)
@@ -400,7 +400,7 @@ struct NotesEditor: NSViewRepresentable {
 final class TagAwareTextView: NSTextView {
     var onTagTap: ((String) -> Void)?
     var tagRanges: [(NSRange, String)] = []
-    var placeholderString: String = "notes..."
+    var placeholderString: String = "notes…"
     /// Return true when a suggest overlay consumed the command.
     var onSuggestCommand: ((Selector) -> Bool)?
 

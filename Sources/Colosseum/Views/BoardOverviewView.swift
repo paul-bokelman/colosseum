@@ -25,6 +25,7 @@ struct BoardOverviewView: View {
     var onInitialConnectionConsumed: () -> Void = {}
 
     @Environment(\.modelContext) private var context
+    @ObservedObject private var overlays = OverlayPresentation.shared
     @Query(sort: \Board.updatedAt, order: .reverse) private var allBoards: [Board]
 
     @State private var selectedConnectionID: UUID?
@@ -379,6 +380,8 @@ struct BoardOverviewView: View {
                 }
                 .opacity(0)
                 .allowsHitTesting(false)
+                // A modal overlay owns the keyboard: bare `b` / `n` / `f` must reach its search field.
+                .disabled(overlays.isPresented)
             }
             .focusable()
             .focused($boardFocused)
@@ -438,10 +441,16 @@ struct BoardOverviewView: View {
                 }
             }
             .onExitCommand(perform: handleEscape)
-            .sheet(isPresented: $showConnectBoard) {
-                ConnectBoardSheet(board: board)
+            .modalOverlay(isPresented: $showConnectBoard) {
+                ConnectOverlay(
+                    block: nil,
+                    nestedBoard: nil,
+                    parentBoard: board,
+                    excludeBoardID: nil,
+                    onDismiss: { showConnectBoard = false }
+                )
             }
-            .alert("Rename Board", isPresented: $showRename) {
+            .alert("Rename board", isPresented: $showRename) {
                 TextField("Title", text: $renameTitle)
                 Button("Save") {
                     board.title = renameTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -458,8 +467,8 @@ struct BoardOverviewView: View {
             .overlay {
                 if isTargeted {
                     Rectangle()
-                        .stroke(Color.white.opacity(0.5), lineWidth: 2)
-                        .padding(8)
+                        .stroke(ColosseumTheme.primaryText, lineWidth: 1)
+                        .padding(Space.s2)
                         .allowsHitTesting(false)
                 }
             }
@@ -490,7 +499,7 @@ struct BoardOverviewView: View {
                 guard arenaBrowseTarget == nil else { return }
                 openFiles()
             }
-            .alert("Import Error", isPresented: importErrorPresented) {
+            .alert("Import error", isPresented: importErrorPresented) {
                 Button("OK", role: .cancel) { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
@@ -1229,7 +1238,7 @@ struct BoardOverviewView: View {
                             .transition(ColosseumMotion.itemTransition)
                     }
                 }
-                .padding(28)
+                .padding(Space.s5)
                 .padding(.bottom, isAssigningTag ? 200 : 0)
                 .animation(ColosseumMotion.standard, value: selectedTags)
                 .animation(ColosseumMotion.standard, value: tagMatchMode)
@@ -1243,7 +1252,7 @@ struct BoardOverviewView: View {
             .blur(radius: isAssigningTag ? 5 : 0)
             .overlay {
                 if isAssigningTag {
-                    Color.black.opacity(0.55)
+                    ColosseumTheme.scrim
                         .ignoresSafeArea()
                         .onTapGesture { endTagAssign() }
                         .transition(.opacity)
@@ -1302,7 +1311,7 @@ struct BoardOverviewView: View {
                             .transition(ColosseumMotion.itemTransition)
                     }
                 }
-                .padding(28)
+                .padding(Space.s5)
                 .animation(ColosseumMotion.standard, value: selectedTags)
                 .animation(ColosseumMotion.standard, value: tagMatchMode)
                 .animation(ColosseumMotion.standard, value: boardsOnly)
@@ -1315,13 +1324,13 @@ struct BoardOverviewView: View {
             .overlay(alignment: .bottom) {
                 if isLoadingFlattenedContents {
                     Text("Flattening remote boards…")
-                        .font(.caption)
+                        .font(.system(size: TypeScale.t0))
                         .foregroundStyle(ColosseumTheme.secondaryText)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, Space.s3)
+                        .padding(.vertical, Space.s2)
                         .background(ColosseumTheme.elevated)
                         .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
-                        .padding(.bottom, 20)
+                        .padding(.bottom, Space.s4)
                 }
             }
             .onChange(of: addActivateRequest) { _, _ in
@@ -1380,12 +1389,12 @@ struct BoardOverviewView: View {
 
     @ViewBuilder
     private func tagAssignElevated(connection: Connection, rect: CGRect) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Space.s2) {
             connectionCellContent(connection, isSelected: true)
                 .frame(width: rect.width, height: rect.height)
                 .clipped()
                 .gridSelectionRing(isActive: true)
-                .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
+                .floatingPanelShadow()
 
             TagAssignPopover(
                 tags: availableTags,
@@ -1451,6 +1460,7 @@ struct BoardOverviewView: View {
             }
         }
         .buttonStyle(.plain)
+        .pointingHandCursor()
         .contextMenu { connectionMenu(connection) }
     }
 
@@ -1494,10 +1504,10 @@ struct BoardOverviewView: View {
             }
         }
         if let nested = connection.nestedBoard {
-            Button("Open Board") { path.append(nested.id) }
+            Button("Open board") { path.append(nested.id) }
         }
         Divider()
-        Button("Remove from Board", role: .destructive) {
+        Button("Remove from board", role: .destructive) {
             ImportService.removeConnection(connection, deleteOrphanedBlock: true, context: context)
             try? context.save()
         }

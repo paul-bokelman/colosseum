@@ -20,7 +20,7 @@ struct ShimmerBlockPlaceholder: View {
         .clipped()
         .overlay {
             if showsBorder {
-                Rectangle().stroke(ColosseumTheme.border, lineWidth: 0.5)
+                Rectangle().stroke(ColosseumTheme.border, lineWidth: 1)
             }
         }
         .accessibilityLabel("Loading")
@@ -38,7 +38,7 @@ struct ShimmerBlockPlaceholder: View {
                 LinearGradient(
                     stops: [
                         .init(color: .clear, location: clamp(x - 0.14)),
-                        .init(color: Color.white.opacity(0.12), location: clamp(x)),
+                        .init(color: ColosseumTheme.shimmerHighlight, location: clamp(x)),
                         .init(color: .clear, location: clamp(x + 0.14))
                     ],
                     startPoint: .bottomLeading,

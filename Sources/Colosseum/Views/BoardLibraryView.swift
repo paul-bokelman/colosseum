@@ -188,10 +188,10 @@ struct BoardLibraryView: View {
             Text(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? (flattened ? "No blocks in these boards" : "Type to filter boards")
                 : "No boards match")
-                .font(.system(size: 13))
+                .font(.system(size: TypeScale.t2))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 80)
+                .padding(.top, Space.s9)
         } else {
             boardGrid
         }
@@ -208,9 +208,9 @@ struct BoardLibraryView: View {
                 }
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.top, 20)
-        .padding(.bottom, 40)
+        .padding(.horizontal, Space.s5)
+        .padding(.top, Space.s4)
+        .padding(.bottom, Space.s7)
         .background(
             GeometryReader { geo in
                 Color.clear.preference(key: HomeGridWidthKey.self, value: geo.size.width)
@@ -234,7 +234,7 @@ struct BoardLibraryView: View {
         .pointingHandCursor()
         .id(entryID)
         .contextMenu {
-            Button("Delete Board", role: .destructive) {
+            Button("Delete board", role: .destructive) {
                 onDelete(board)
             }
         }
@@ -298,7 +298,7 @@ struct BoardLibraryView: View {
         let lineWidth = ColosseumTheme.selectionRingWidth
         let outset = gap + lineWidth / 2
         return Rectangle()
-            .stroke(Color.white.opacity(0.85), lineWidth: lineWidth)
+            .stroke(ColosseumTheme.selectionRingColor, lineWidth: lineWidth)
             .padding(.bottom, 22 - outset)
             .padding(.top, -outset)
             .padding(.horizontal, -outset)
@@ -306,18 +306,18 @@ struct BoardLibraryView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Space.s2) {
             Text("No boards yet")
-                .font(.title3)
+                .font(.system(size: TypeScale.t3))
                 .foregroundStyle(ColosseumTheme.primaryText)
             Text("Create a board with ⌘↩, or import with ⌘I.")
-                .font(.callout)
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 80)
-        .padding(.horizontal, 40)
+        .padding(.top, Space.s9)
+        .padding(.horizontal, Space.s7)
     }
 
     private func toggleSearch() {
@@ -422,27 +422,27 @@ struct BoardCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Space.s2) {
             ZStack {
                 Rectangle()
                     .fill(ColosseumTheme.surface)
-                VStack(spacing: 6) {
+                VStack(spacing: Space.s1) {
                     Text(board.title)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: TypeScale.t3))
                         .foregroundStyle(ColosseumTheme.primaryText)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                     Text("\(board.contentCount) blocks")
-                        .font(.system(size: 11))
+                        .font(.system(size: TypeScale.t0))
                         .foregroundStyle(ColosseumTheme.secondaryText)
                     Text(ColosseumFormatters.relativeDate(board.updatedAt))
-                        .font(.system(size: 11))
+                        .font(.system(size: TypeScale.t0))
                         .foregroundStyle(ColosseumTheme.tertiaryText)
                     Text(ColosseumFormatters.byteCount(board.storageBytes))
-                        .font(.system(size: 11))
+                        .font(.system(size: TypeScale.t0))
                         .foregroundStyle(ColosseumTheme.tertiaryText)
                 }
-                .padding(16)
+                .padding(Space.s3)
             }
             .aspectRatio(1, contentMode: .fit)
             .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))

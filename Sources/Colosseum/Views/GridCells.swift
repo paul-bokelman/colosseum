@@ -61,14 +61,14 @@ struct MediaBlockCell: View {
 
             if block.kind == .video, !shouldPlayVideo {
                 Image(systemName: "play.rectangle")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .padding(8)
+                    .font(.system(size: TypeScale.t1))
+                    .foregroundStyle(ColosseumTheme.onMedia)
+                    .padding(Space.s2)
             } else if block.kind == .audio {
                 Image(systemName: shouldPlayAudio ? "speaker.wave.2.fill" : "waveform")
-                    .font(.system(size: shouldPlayAudio ? 14 : 24, weight: .light))
-                    .foregroundStyle(shouldPlayAudio ? Color.white : ColosseumTheme.secondaryText)
-                    .padding(8)
+                    .font(.system(size: shouldPlayAudio ? TypeScale.t2 : TypeScale.t5))
+                    .foregroundStyle(shouldPlayAudio ? ColosseumTheme.primaryText : ColosseumTheme.secondaryText)
+                    .padding(Space.s2)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -133,7 +133,7 @@ struct MediaBlockCell: View {
 
     private var placeholder: some View {
         Image(systemName: block.kind == .video ? "video" : block.kind == .audio ? "waveform" : "photo")
-            .font(.system(size: 24, weight: .light))
+            .font(.system(size: TypeScale.t5))
             .foregroundStyle(ColosseumTheme.tertiaryText)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ColosseumTheme.surface)
@@ -180,11 +180,11 @@ struct TextBlockCell: View {
             Rectangle()
                 .fill(ColosseumTheme.canvas)
             Text(block.textBody.isEmpty ? "Empty note" : block.textBody)
-                .font(.system(size: 12))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.primaryText)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(12)
+                .padding(Space.s3)
         }
         .aspectRatio(1, contentMode: .fit)
         .blockTagBorder(tags: tags, lineWidth: tags.isEmpty ? 1 : ColosseumTheme.taggedBorderWidth)
@@ -212,16 +212,16 @@ struct LinkBlockCell: View {
     }
 
     private var linkPlaceholder: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Space.s2) {
             Image(systemName: "link")
-                .font(.system(size: 20, weight: .light))
+                .font(.system(size: TypeScale.t4))
                 .foregroundStyle(ColosseumTheme.secondaryText)
             Text(block.displayTitle)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.primaryText)
                 .multilineTextAlignment(.center)
                 .lineLimit(4)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, Space.s2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -235,27 +235,27 @@ struct ArenaBlockCell: View {
         ZStack {
             Rectangle()
                 .fill(ColosseumTheme.canvas)
-            VStack(spacing: 6) {
+            VStack(spacing: Space.s1) {
                 Text(block.title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: TypeScale.t2))
                     .foregroundStyle(ColosseumTheme.remoteBoardTitle)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
                 if let owner = block.arenaOwnerName {
                     Text("by \(owner)")
-                        .font(.system(size: 11))
+                        .font(.system(size: TypeScale.t0))
                         .foregroundStyle(ColosseumTheme.secondaryText)
                 }
                 Text("\(block.arenaBlockCount) blocks")
-                    .font(.system(size: 11))
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.secondaryText)
                 if let updated = block.arenaUpdatedAt {
                     Text(ColosseumFormatters.relativeDate(updated))
-                        .font(.system(size: 11))
+                        .font(.system(size: TypeScale.t0))
                         .foregroundStyle(ColosseumTheme.tertiaryText)
                 }
             }
-            .padding(14)
+            .padding(Space.s3)
         }
         .aspectRatio(1, contentMode: .fit)
         .blockTagBorder(tags: tags, lineWidth: tags.isEmpty ? 1 : ColosseumTheme.taggedBorderWidth)
@@ -270,23 +270,23 @@ struct NestedBoardCell: View {
         ZStack {
             Rectangle()
                 .fill(ColosseumTheme.canvas)
-            VStack(spacing: 6) {
+            VStack(spacing: Space.s1) {
                 Text(board.title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: TypeScale.t2))
                     .foregroundStyle(ColosseumTheme.primaryText)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
                 Text("\(board.contentCount) blocks")
-                    .font(.system(size: 11))
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.secondaryText)
                 Text(ColosseumFormatters.relativeDate(board.updatedAt))
-                    .font(.system(size: 11))
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.tertiaryText)
                 Text(ColosseumFormatters.byteCount(board.storageBytes))
-                    .font(.system(size: 11))
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.tertiaryText)
             }
-            .padding(14)
+            .padding(Space.s3)
         }
         .aspectRatio(1, contentMode: .fit)
         .blockTagBorder(tags: tags, lineWidth: tags.isEmpty ? 1 : ColosseumTheme.taggedBorderWidth)

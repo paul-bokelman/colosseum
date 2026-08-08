@@ -7,7 +7,7 @@ A private arena for the things you collect.
 Boards. Blocks. Connections.  
 Nothing leaves the machine.
 
-[Download for macOS](https://github.com/paul-bokelman/colosseum/releases/latest/download/Colosseum-1.10.0-macos.zip)
+[Download for macOS](https://github.com/paul-bokelman/colosseum/releases/latest/download/Colosseum-1.11.0-macos.zip)
 
 ## What it is
 

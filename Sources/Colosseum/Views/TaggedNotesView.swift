@@ -12,7 +12,7 @@ struct TagPill: View {
     var body: some View {
         Button(action: action) {
             Text(TagParser.displayLabel(tag))
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: TypeScale.t0))
                 .foregroundStyle(isSelected ? color : (isFocused ? ColosseumTheme.primaryText : ColosseumTheme.tertiaryText))
                 .overlay(alignment: .bottom) {
                     if isFocused {
@@ -42,7 +42,7 @@ struct TagMatchModeIcon: View {
             }
         } label: {
             Text(mode == .intersection ? "∩" : "∪")
-                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .font(.system(size: TypeScale.t0, design: .rounded))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
                 .frame(width: 12, height: 12)
                 .contentShape(Rectangle())
@@ -68,7 +68,7 @@ struct UncategorizedFilterIcon: View {
             }
         } label: {
             Text(".")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.system(size: TypeScale.t0, design: .monospaced))
                 .foregroundStyle(isActive ? ColosseumTheme.primaryText : ColosseumTheme.tertiaryText)
                 .frame(width: 12, height: 12)
                 .contentShape(Rectangle())
@@ -95,7 +95,7 @@ struct BoardsOnlyFilterIcon: View {
             }
         } label: {
             Text("b")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.system(size: TypeScale.t0, design: .monospaced))
                 .foregroundStyle(isActive ? ColosseumTheme.primaryText : ColosseumTheme.tertiaryText)
                 .frame(width: 12, height: 12)
                 .contentShape(Rectangle())
@@ -127,7 +127,7 @@ struct TagHeaderScroller: View {
                 Color.clear.frame(width: 1, height: 1)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Space.s2) {
                         ForEach(displayedTags, id: \.self) { tag in
                             let key = TagParser.normalize(tag)
                             TagPill(tag: tag, isSelected: selected.contains(key)) {
@@ -135,7 +135,7 @@ struct TagHeaderScroller: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, Space.s1)
                 }
                 .frame(
                     width: ChromeMetrics.headerCenterWidth,

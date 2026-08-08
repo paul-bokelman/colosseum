@@ -2,11 +2,11 @@ import SwiftData
 import SwiftUI
 
 struct ImportArenaSheet: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
 
     var onImported: (Board) -> Void
     var onBrowse: (ArenaBrowseTarget) -> Void
+    var onDismiss: () -> Void
 
     enum Mode: String, CaseIterable, Identifiable {
         case browse = "Browse"
@@ -23,13 +23,21 @@ struct ImportArenaSheet: View {
     @State private var progressTotal: Double = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Space.s3) {
             HStack {
                 Text("Are.na")
-                    .font(.title3.weight(.medium))
+                    .font(.system(size: TypeScale.t3, weight: .bold))
                 Spacer()
-                Button("Close") { dismiss() }
-                    .disabled(isWorking)
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: TypeScale.t2))
+                        .foregroundStyle(ColosseumTheme.secondaryText)
+                        .frame(width: Space.s4, height: Space.s4)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .pointingHandCursor()
+                .disabled(isWorking)
             }
 
             Picker("", selection: $mode) {
@@ -41,52 +49,56 @@ struct ImportArenaSheet: View {
             Text(mode == .browse
                   ? "Preview a public channel in Colosseum — media streams from Are.na and connected blocks remain remote."
                   : "Download the whole channel into a new local board (images, video, and audio copied to disk).")
-                .font(.callout)
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
             TextField("https://www.are.na/user/channel-slug", text: $urlText)
-                .textFieldStyle(.roundedBorder)
+                .colosseumField()
                 .disabled(isWorking)
 
             if isWorking {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Space.s2) {
                     ProgressView(value: progressTotal > 0 ? progressValue : nil, total: progressTotal > 0 ? progressTotal : 1)
                     Text(progressLabel)
-                        .font(.caption)
+                        .font(.system(size: TypeScale.t0))
                         .foregroundStyle(ColosseumTheme.secondaryText)
                 }
             }
 
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                    .font(.system(size: TypeScale.t0))
+                    .foregroundStyle(ColosseumTheme.alert)
             }
 
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button("Cancel") { onDismiss() }
+                    .buttonStyle(ChromeButtonStyle())
+                    .pointingHandCursor()
                     .disabled(isWorking)
                 Button(primaryLabel) {
                     Task { await submit() }
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(isWorking || !canSubmit)
-                .buttonStyle(.borderedProminent)
-                .tint(.white)
-                .foregroundStyle(.black)
+                .buttonStyle(ChromeButtonStyle(emphasized: true))
+                .pointingHandCursor()
             }
         }
-        .padding(20)
-        .frame(width: 500)
+        .padding(Space.s4)
+        .frame(width: ColosseumTheme.panelWidth)
         .background(ColosseumTheme.canvas)
+        .contentShape(Rectangle())
+        .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
+        .onExitCommand { onDismiss() }
     }
 
     private var primaryLabel: String {
         switch mode {
-        case .browse: return "Browse Channel"
-        case .importBoard: return isWorking ? "Importing…" : "Import Board"
+        case .browse: return "Browse channel"
+        case .importBoard: return isWorking ? "Importing…" : "Import board"
         }
     }
 
@@ -106,7 +118,7 @@ struct ImportArenaSheet: View {
                 slug: parsed.channelSlug,
                 urlString: urlText.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-            dismiss()
+            onDismiss()
             onBrowse(target)
         case .importBoard:
             await importBoard()
@@ -130,7 +142,7 @@ struct ImportArenaSheet: View {
                 progressTotal = Double(max(progress.total, 0))
             }
             onImported(board)
-            dismiss()
+            onDismiss()
         } catch {
             errorMessage = error.localizedDescription
         }

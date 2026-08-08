@@ -7,7 +7,7 @@ import SwiftUI
 /// is intercepted so it can be resolved instead of dropped in as text.
 struct ArenaInputField: NSViewRepresentable {
     @Binding var text: String
-    var fontSize: CGFloat = 26
+    var fontSize: CGFloat = TypeScale.t6
     /// Bumped by the parent to pull focus back into the field.
     var focusRequest: Int = 0
     var onSubmit: () -> Void
@@ -44,7 +44,7 @@ struct ArenaInputField: NSViewRepresentable {
         textView.textColor = .white
         textView.insertionPointColor = .white
         textView.alignment = .center
-        textView.font = .systemFont(ofSize: fontSize, weight: .regular)
+        textView.font = .systemFont(ofSize: fontSize)
         textView.textContainerInset = NSSize(width: 8, height: 0)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -75,7 +75,7 @@ struct ArenaInputField: NSViewRepresentable {
             textView.recenter()
         }
         if textView.font?.pointSize != fontSize {
-            textView.font = .systemFont(ofSize: fontSize, weight: .regular)
+            textView.font = .systemFont(ofSize: fontSize)
             textView.recenter()
         }
         if context.coordinator.lastFocusRequest != focusRequest {

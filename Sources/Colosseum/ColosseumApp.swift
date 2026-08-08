@@ -34,30 +34,30 @@ struct ColosseumApp: App {
         .defaultSize(width: 1200, height: 800)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("New Board") {
+                Button("New board") {
                     NotificationCenter.default.post(name: .colosseumNewBoard, object: nil)
                 }
 
-                Button("Add to Board…") {
+                Button("Add to board…") {
                     NotificationCenter.default.post(name: .colosseumAdd, object: nil)
                 }
 
-                Button("New Board or Add") {
+                Button("New board or add") {
                     NotificationCenter.default.post(name: .colosseumCommandReturn, object: nil)
                 }
                 .keyboardShortcut(.return, modifiers: .command)
 
-                Button("Connect Board…") {
+                Button("Connect board…") {
                     NotificationCenter.default.post(name: .colosseumConnectBoard, object: nil)
                 }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
 
-                Button("Rename Board…") {
+                Button("Rename board…") {
                     NotificationCenter.default.post(name: .colosseumRename, object: nil)
                 }
                 .keyboardShortcut("r", modifiers: .command)
 
-                Button("Paste into Board") {
+                Button("Paste into board") {
                     NotificationCenter.default.post(name: .colosseumPaste, object: nil)
                 }
                 .keyboardShortcut("v", modifiers: .command)
@@ -67,19 +67,19 @@ struct ColosseumApp: App {
                 }
                 .keyboardShortcut("o", modifiers: .command)
 
-                Button("Import Are.na Board") {
+                Button("Import Are.na board") {
                     NotificationCenter.default.post(name: .colosseumArenaImport, object: nil)
                 }
                 .keyboardShortcut("d", modifiers: .command)
 
                 Divider()
 
-                Button("Fewer Columns") {
+                Button("Fewer columns") {
                     NotificationCenter.default.post(name: .colosseumColumnsDecrease, object: nil)
                 }
                 .keyboardShortcut("+", modifiers: .command)
 
-                Button("More Columns") {
+                Button("More columns") {
                     NotificationCenter.default.post(name: .colosseumColumnsIncrease, object: nil)
                 }
                 .keyboardShortcut("-", modifiers: .command)

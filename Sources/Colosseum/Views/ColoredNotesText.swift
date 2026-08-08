@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Notes text with Are.na-style `#tag` coloring (matches block preview notes).
 enum ColoredNotesText {
-    static func attributed(_ text: String, fontSize: CGFloat = 13) -> AttributedString {
+    static func attributed(_ text: String, fontSize: CGFloat = TypeScale.t2) -> AttributedString {
         let ns = text as NSString
         let full = NSRange(location: 0, length: ns.length)
         guard full.length > 0 else { return AttributedString("") }
@@ -56,12 +56,12 @@ struct NotesPreviewLine: View {
     var body: some View {
         Group {
             if highlightQuery.isEmpty {
-                Text(ColoredNotesText.attributed(trimmed.isEmpty ? " " : trimmed, fontSize: 13))
+                Text(ColoredNotesText.attributed(trimmed.isEmpty ? " " : trimmed, fontSize: TypeScale.t2))
             } else {
                 Text(BoardContentSearch.highlightedPreview(
                     trimmed.isEmpty ? " " : trimmed,
                     query: highlightQuery,
-                    fontSize: 13
+                    fontSize: TypeScale.t2
                 ))
             }
         }

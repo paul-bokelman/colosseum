@@ -2,8 +2,12 @@ import AppKit
 import SwiftUI
 
 enum ChromeMetrics {
-    static let controlHeight: CGFloat = 30
-    static let iconButtonWidth: CGFloat = 30
+    /// Are.na control sizes: sm 24, md 34. Icon buttons match the md height so they
+    /// sit level with text buttons in a shared row (Are.na's 24 icon is standalone).
+    static let controlHeight: CGFloat = 34
+    static let controlHeightSmall: CGFloat = 24
+    static let iconButtonWidth: CGFloat = 34
+    static let controlRadius: CGFloat = 3
     static let homeIconSize: CGFloat = 22
     static let boardColumnsMin = 2
     static let boardColumnsMax = 8
@@ -11,9 +15,13 @@ enum ChromeMetrics {
     /// Magnification delta required to move one column step (higher = less sensitive).
     static let pinchStepThreshold: CGFloat = 0.22
     /// Match board grid content inset so trailing toolbar controls line up.
-    static let contentInset: CGFloat = 28
+    static let contentInset: CGFloat = Space.s5
     /// Centered tag strip / search field width in the window header.
     static let headerCenterWidth: CGFloat = 400
+
+    static var controlShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: controlRadius)
+    }
 }
 
 /// Bordered chrome control matching the home Import button look.
@@ -22,12 +30,19 @@ struct ChromeButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(emphasized ? Color.black : ColosseumTheme.primaryText)
-            .padding(.horizontal, 12)
+            .font(.system(size: TypeScale.t2, weight: .bold))
+            .foregroundStyle(emphasized ? ColosseumTheme.canvas : ColosseumTheme.linkText)
+            // Are.na: white-space: nowrap; flex-shrink: 0. A label never wraps to
+            // fit its row — the row gives way instead.
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, Space.s3)
             .frame(height: ChromeMetrics.controlHeight)
-            .background(emphasized ? Color.white : ColosseumTheme.surface)
-            .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
+            .background(
+                emphasized ? ColosseumTheme.linkText : ColosseumTheme.surface,
+                in: ChromeMetrics.controlShape
+            )
+            .overlay(ChromeMetrics.controlShape.stroke(ColosseumTheme.border, lineWidth: 1))
             .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
@@ -37,12 +52,44 @@ struct ChromeIconButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: TypeScale.t1))
             .foregroundStyle(active ? ColosseumTheme.primaryText : ColosseumTheme.secondaryText)
             .frame(width: ChromeMetrics.iconButtonWidth, height: ChromeMetrics.controlHeight)
-            .background(active ? ColosseumTheme.elevated : ColosseumTheme.surface)
-            .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
+            .background(
+                active ? ColosseumTheme.elevated : ColosseumTheme.surface,
+                in: ChromeMetrics.controlShape
+            )
+            .overlay(ChromeMetrics.controlShape.stroke(ColosseumTheme.border, lineWidth: 1))
             .opacity(configuration.isPressed ? 0.75 : 1)
+    }
+}
+
+/// DESIGN.md §6.2. Never `.roundedBorder` — the system style is not part of the language.
+struct ColosseumFieldBackground: ViewModifier {
+    var focused: Bool
+    var prominent = false
+
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .font(.system(size: prominent ? TypeScale.t3 : TypeScale.t2))
+            .foregroundStyle(ColosseumTheme.primaryText)
+            .padding(.horizontal, Space.s3)
+            .frame(height: prominent ? Space.s7 : ChromeMetrics.controlHeight)
+            .background(ColosseumTheme.surface, in: ChromeMetrics.controlShape)
+            .overlay(
+                ChromeMetrics.controlShape.stroke(
+                    focused ? ColosseumTheme.focus : ColosseumTheme.border,
+                    lineWidth: 1
+                )
+            )
+            .focusEffectDisabled()
+    }
+}
+
+extension View {
+    func colosseumField(focused: Bool = false, prominent: Bool = false) -> some View {
+        modifier(ColosseumFieldBackground(focused: focused, prominent: prominent))
     }
 }
 
@@ -51,7 +98,7 @@ struct ShortcutHint: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .font(.system(size: TypeScale.t0, design: .monospaced))
             .foregroundStyle(ColosseumTheme.tertiaryText)
             .contentShape(Rectangle())
     }
@@ -137,7 +184,7 @@ struct BoardPathBreadcrumb: View {
             ),
             DisplaySegment(
                 id: "collapsed-middle",
-                title: "...",
+                title: "…",
                 originalIndex: lastHiddenIndex,
                 helpTitle: segments[lastHiddenIndex].title
             )
@@ -152,18 +199,18 @@ struct BoardPathBreadcrumb: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Space.s1) {
             ForEach(Array(displaySegments.enumerated()), id: \.element.id) { displayIndex, segment in
-                HStack(spacing: 6) {
+                HStack(spacing: Space.s1) {
                     if displayIndex > 0 {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(ColosseumTheme.tertiaryText.opacity(0.8))
+                            .font(.system(size: TypeScale.t0, weight: .bold))
+                            .foregroundStyle(ColosseumTheme.tertiaryText)
                     }
                     let isCurrent = segment.originalIndex == segments.count - 1
                     let opacity = breadcrumbOpacity(index: segment.originalIndex, count: segments.count)
                     Text(segment.title)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: TypeScale.t2))
                         .foregroundStyle(isCurrent ? currentColor : ColosseumTheme.primaryText)
                         .opacity(opacity)
                         .lineLimit(1)
@@ -237,9 +284,9 @@ struct ColumnDensityControl: View {
     @Binding var columnCount: Int
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Space.s2) {
             Image(systemName: "rectangle.split.3x1")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: TypeScale.t0))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
 
             Slider(
@@ -251,13 +298,13 @@ struct ColumnDensityControl: View {
                 step: 1
             )
             .controlSize(.mini)
-            .tint(Color.white.opacity(0.45))
+            .tint(ColosseumTheme.borderStrong)
             .frame(width: 88)
 
             Text("\(columnCount)")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.system(size: TypeScale.t0, design: .monospaced))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
-                .frame(width: 12, alignment: .trailing)
+                .frame(width: 15, alignment: .trailing)
         }
         .help("Items per column")
     }
@@ -277,7 +324,7 @@ struct ColosseumColumnSliderToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .center, spacing: Space.s2) {
                 if isImporting {
                     ProgressView().controlSize(.small)
                 }
@@ -299,7 +346,7 @@ struct ColosseumColumnSliderToolbar: ToolbarContent {
             .allowsHitTesting(visible)
             .animation(ColosseumMotion.overlay, value: visible)
             // System toolbar already insets a bit; pad the rest to match grid content (28).
-            .padding(.trailing, max(0, ChromeMetrics.contentInset - 10))
+            .padding(.trailing, max(0, ChromeMetrics.contentInset - Space.s2))
         }
         .colosseumPlainToolbarItem()
     }
@@ -313,9 +360,9 @@ struct FlattenToggleIcon: View {
             withAnimation(ColosseumMotion.soft) { isActive.toggle() }
         } label: {
             Text("f")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.system(size: TypeScale.t0, design: .monospaced))
                 .foregroundStyle(isActive ? ColosseumTheme.primaryText : ColosseumTheme.tertiaryText)
-                .frame(width: 12, height: 12)
+                .frame(width: 15, height: 15)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -334,13 +381,13 @@ struct BoardHeaderSearchField: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Space.s2) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
             TextField(placeholder, text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.primaryText)
                 .focused($focused)
                 .onExitCommand {
@@ -465,7 +512,7 @@ struct AppHomeButton: View {
                         .scaledToFit()
                 } else {
                     Image(systemName: "square.grid.2x2")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: TypeScale.t3))
                         .foregroundStyle(ColosseumTheme.primaryText)
                 }
             }

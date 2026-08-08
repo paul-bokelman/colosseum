@@ -353,7 +353,7 @@ private final class SuggestRowButton: NSButton {
 
     override func draw(_ dirtyRect: NSRect) {
         if isSelectedRow {
-            NSColor.white.withAlphaComponent(0.08).setFill()
+            ColosseumTheme.nsSurface.setFill()
             bounds.insetBy(dx: -4, dy: 1).fill()
         }
 
@@ -396,7 +396,7 @@ private final class SuggestRowButton: NSButton {
     private func drawTrailingPill(_ label: String) {
         let text = label as NSString
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 9, weight: .medium),
+            .font: NSFont.systemFont(ofSize: 9),
             .foregroundColor: NSColor(ColosseumTheme.tertiaryText)
         ]
         let textSize = text.size(withAttributes: attrs)

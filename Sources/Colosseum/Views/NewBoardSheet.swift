@@ -1,9 +1,8 @@
 import SwiftUI
 
 struct NewBoardSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
     var onCreate: (String) -> Void
+    var onDismiss: () -> Void
 
     @State private var title = ""
     @State private var keyMonitor = KeyNavMonitor()
@@ -13,31 +12,25 @@ struct NewBoardSheet: View {
         VStack(spacing: 0) {
             HStack {
                 Text("New board")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: TypeScale.t3, weight: .bold))
                     .foregroundStyle(ColosseumTheme.primaryText)
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .frame(height: 54)
+            .padding(.horizontal, Space.s3)
+            .frame(height: Space.s7)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(ColosseumTheme.border).frame(height: 1)
             }
 
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Space.s3) {
                 TextField("Board title", text: $title)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .foregroundStyle(ColosseumTheme.primaryText)
-                    .padding(.horizontal, 10)
-                    .frame(height: 34)
-                    .background(ColosseumTheme.surface)
-                    .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
+                    .colosseumField(focused: titleFocused)
                     .focused($titleFocused)
                     .onSubmit { create() }
 
                 HStack {
                     Spacer()
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { onDismiss() }
                         .buttonStyle(ChromeButtonStyle())
                         .pointingHandCursor()
                     Button("Create") { create() }
@@ -45,10 +38,10 @@ struct NewBoardSheet: View {
                         .pointingHandCursor()
                 }
             }
-            .padding(16)
+            .padding(Space.s3)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .frame(width: 420)
+        .frame(width: ColosseumTheme.panelWidth)
         .fixedSize(horizontal: false, vertical: true)
         .background(ColosseumTheme.canvas)
         .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
@@ -58,7 +51,7 @@ struct NewBoardSheet: View {
             DispatchQueue.main.async { titleFocused = true }
         }
         .onDisappear { keyMonitor.remove() }
-        .onExitCommand { dismiss() }
+        .onExitCommand { onDismiss() }
     }
 
     private func installKeyMonitor() {
@@ -66,13 +59,13 @@ struct NewBoardSheet: View {
             titleFocused = true
             return true
         }
-        keyMonitor.onEscape = { dismiss() }
+        keyMonitor.onEscape = { onDismiss() }
         keyMonitor.install()
     }
 
     private func create() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         onCreate(trimmed.isEmpty ? "Untitled" : trimmed)
-        dismiss()
+        onDismiss()
     }
 }

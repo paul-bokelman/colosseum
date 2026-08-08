@@ -35,6 +35,7 @@ struct ArenaBrowserView: View {
     var onImportedBoard: ((Board) -> Void)?
 
     @Environment(\.modelContext) private var context
+    @ObservedObject private var overlays = OverlayPresentation.shared
     @State private var model = ArenaBrowserModel()
     @State private var selectedItem: ArenaContentItem?
     @State private var selectedItemSiblings: [ArenaContentItem] = []
@@ -274,6 +275,8 @@ struct ArenaBrowserView: View {
         .onChange(of: showConnect) { _, isPresented in
             if isPresented {
                 keyMonitor.remove()
+            } else if selectedItem == nil {
+                activateFocus()
             } else {
                 installKeyMonitor()
             }
@@ -357,6 +360,8 @@ struct ArenaBrowserView: View {
             }
             .opacity(0)
             .allowsHitTesting(false)
+            // A modal overlay owns the keyboard: bare `b` / `n` / `f` must reach its search field.
+            .disabled(overlays.isPresented)
         }
         .modifier(ArenaBrowserNotifications(
             onOpenCommand: openOnArena,
@@ -368,33 +373,34 @@ struct ArenaBrowserView: View {
         .overlay(alignment: .bottom) {
             if let statusMessage {
                 Text(statusMessage)
-                    .font(.caption)
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.secondaryText)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, Space.s3)
+                    .padding(.vertical, Space.s2)
                     .background(ColosseumTheme.elevated)
                     .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
-                    .padding(.bottom, 20)
+                    .padding(.bottom, Space.s4)
             }
             if isLoadingFlattenedContents {
                 Text("Flattening child boards…")
-                    .font(.caption)
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.secondaryText)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, Space.s3)
+                    .padding(.vertical, Space.s2)
                     .background(ColosseumTheme.elevated)
                     .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
                     .padding(.bottom, statusMessage == nil ? 20 : 54)
             }
         }
         .highPriorityGesture(columnPinchGesture)
-        .sheet(isPresented: $showConnect) {
+        .modalOverlay(isPresented: $showConnect) {
             if let channel = model.channel {
-                ConnectSheet(
+                ConnectOverlay(
                     block: nil,
                     nestedBoard: nil,
                     remoteItem: ArenaContentItem.channel(channel),
-                    excludeBoardID: nil
+                    excludeBoardID: nil,
+                    onDismiss: { showConnect = false }
                 )
             }
         }
@@ -409,18 +415,18 @@ struct ArenaBrowserView: View {
                     onSegmentTap: jump(to:)
                 )
 
-                Spacer(minLength: 12)
+                Spacer(minLength: Space.s2)
 
                 if isImporting {
                     ProgressView()
                         .controlSize(.small)
                     Text(importProgress)
-                        .font(.caption)
+                        .font(.system(size: TypeScale.t0))
                         .foregroundStyle(ColosseumTheme.secondaryText)
                 }
 
                 if selectedItem == nil {
-                    HStack(alignment: .center, spacing: 10) {
+                    HStack(alignment: .center, spacing: Space.s2) {
                         BoardsOnlyFilterIcon(isActive: boardsOnlyActive)
                         FlattenToggleIcon(isActive: flattenedActive)
                         ColumnDensityControl(columnCount: $columnCount)
@@ -458,7 +464,7 @@ struct ArenaBrowserView: View {
                 LazyVGrid(columns: columns, spacing: ColosseumTheme.gridGap) {
                     ForEach(0..<(columnCount * 2), id: \.self) { _ in
                         if showGridNotes {
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: Space.s2) {
                                 ShimmerBlockPlaceholder()
                                 Color.clear.frame(height: 16)
                             }
@@ -467,29 +473,29 @@ struct ArenaBrowserView: View {
                         }
                     }
                 }
-                .padding(28)
+                .padding(Space.s5)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = model.errorMessage, model.items.isEmpty {
-            VStack(spacing: 12) {
+            VStack(spacing: Space.s2) {
                 Text("Couldn’t load channel")
-                    .font(.headline)
+                    .font(.system(size: TypeScale.t2, weight: .bold))
                     .foregroundStyle(ColosseumTheme.primaryText)
                 Text(error)
-                    .font(.callout)
+                    .font(.system(size: TypeScale.t1))
                     .foregroundStyle(ColosseumTheme.secondaryText)
                     .multilineTextAlignment(.center)
                 Button("Retry") { model.load(currentTarget) }
                     .buttonStyle(ChromeButtonStyle(emphasized: true))
                     .pointingHandCursor()
             }
-            .padding(40)
+            .padding(Space.s7)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if showBoardSearch,
                   !boardSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   displayedEntries.isEmpty {
             Text("no results")
-                .font(.system(size: 13))
+                .font(.system(size: TypeScale.t2))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -539,16 +545,16 @@ struct ArenaBrowserView: View {
                                     }
                                 }
                                 if item.kind == .channel {
-                                    Button("Browse Channel") { open(entry) }
+                                    Button("Browse channel") { open(entry) }
                                 }
                                 if let urlString = item.previewURL ?? item.sourceURL,
                                    let url = URL(string: urlString) {
-                                    Button("Open Original") { NSWorkspace.shared.open(url) }
+                                    Button("Open original") { NSWorkspace.shared.open(url) }
                                 }
                             }
                         }
                     }
-                    .padding(28)
+                    .padding(Space.s5)
                     .animation(ColosseumMotion.standard, value: columnCount)
                     .animation(ColosseumMotion.standard, value: boardsOnlyActive.wrappedValue)
                     .animation(ColosseumMotion.standard, value: showGridNotes)
@@ -560,8 +566,8 @@ struct ArenaBrowserView: View {
                                 ShimmerBlockPlaceholder()
                             }
                         }
-                        .padding(.horizontal, 28)
-                        .padding(.bottom, 28)
+                        .padding(.horizontal, Space.s5)
+                        .padding(.bottom, Space.s5)
                     }
                 }
                 .onChange(of: gridFocusID) { _, id in
@@ -767,6 +773,11 @@ struct ArenaBrowserView: View {
     }
 
     private func handleEscape() {
+        // Esc belongs to the connect overlay while it is up — never fall through.
+        if showConnect {
+            showConnect = false
+            return
+        }
         if showBoardSearch {
             withAnimation(ColosseumMotion.overlay) {
                 dismissBoardSearch()
@@ -985,74 +996,74 @@ struct ArenaRemoteCell: View {
 
             if item.isVideo, !isHovering {
                 Image(systemName: "play.rectangle")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .padding(8)
+                    .font(.system(size: TypeScale.t1))
+                    .foregroundStyle(ColosseumTheme.onMedia)
+                    .padding(Space.s2)
             } else if item.isAudio {
                 Image(systemName: isHovering ? "speaker.wave.2.fill" : "waveform")
-                    .font(.system(size: isHovering ? 14 : 12))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .padding(8)
+                    .font(.system(size: isHovering ? TypeScale.t2 : TypeScale.t1))
+                    .foregroundStyle(ColosseumTheme.onMedia)
+                    .padding(Space.s2)
             }
         }
         .overlay(
             Rectangle().stroke(
                 ColosseumTheme.border,
-                lineWidth: item.kind == .channel || item.kind == .text ? 1 : 0.5
+                lineWidth: 1
             )
         )
     }
 
     private var textCard: some View {
         Text(item.textBody.isEmpty ? item.displayTitle : item.textBody)
-            .font(.system(size: 12))
+            .font(.system(size: TypeScale.t1))
             .foregroundStyle(ColosseumTheme.primaryText)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(12)
+            .padding(Space.s3)
             .background(ColosseumTheme.canvas)
     }
 
     private var channelCard: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: Space.s1) {
             Text(item.displayTitle)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: TypeScale.t2))
                 .foregroundStyle(ColosseumTheme.remoteBoardTitle)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
             if let owner = item.channelOwnerName {
                 Text("by \(owner)")
-                    .font(.system(size: 11))
+                    .font(.system(size: TypeScale.t0))
                     .foregroundStyle(ColosseumTheme.secondaryText)
             }
             Text("\(item.channelBlockCount) blocks")
-                .font(.system(size: 11))
+                .font(.system(size: TypeScale.t0))
                 .foregroundStyle(ColosseumTheme.secondaryText)
         }
-        .padding(14)
+        .padding(Space.s3)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ColosseumTheme.canvas)
     }
 
     private var audioCard: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Space.s2) {
             Image(systemName: "waveform")
-                .font(.system(size: 28, weight: .light))
+                .font(.system(size: TypeScale.t6))
                 .foregroundStyle(ColosseumTheme.secondaryText)
             Text(item.displayTitle)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.primaryText)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
         }
-        .padding(14)
+        .padding(Space.s3)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ColosseumTheme.surface)
     }
 
     private func placeholder(systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: 24, weight: .light))
+            .font(.system(size: TypeScale.t5))
             .foregroundStyle(ColosseumTheme.tertiaryText)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ColosseumTheme.surface)
@@ -1099,8 +1110,14 @@ private struct ArenaRemoteItemView: View {
                 .frame(width: ColosseumTheme.sidebarWidth, alignment: .leading)
         }
         .background(ColosseumTheme.canvas)
+        .overlay(alignment: .bottomLeading) {
+            if let item {
+                metaButton(for: item)
+                    .padding(Space.s3)
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
-            HStack(spacing: 10) {
+            HStack(spacing: Space.s2) {
                 ShortcutHint(text: "←")
                 ShortcutHint(text: "→")
                 ShortcutHint(text: "↑↓")
@@ -1109,8 +1126,8 @@ private struct ArenaRemoteItemView: View {
                 ShortcutHint(text: "c")
                 ShortcutHint(text: "esc")
             }
-            .padding(16)
             .allowsHitTesting(false)
+            .padding(Space.s3)
         }
         .focusable()
         .focused($focused)
@@ -1133,6 +1150,7 @@ private struct ArenaRemoteItemView: View {
             if isPresented {
                 keyMonitor.remove()
             } else {
+                focused = true
                 installKeyMonitor()
             }
         }
@@ -1164,13 +1182,14 @@ private struct ArenaRemoteItemView: View {
             default: break
             }
         }
-        .sheet(isPresented: $showConnect) {
+        .modalOverlay(isPresented: $showConnect) {
             if let item {
-                ConnectSheet(
+                ConnectOverlay(
                     block: nil,
                     nestedBoard: nil,
                     remoteItem: item,
-                    excludeBoardID: nil
+                    excludeBoardID: nil,
+                    onDismiss: { showConnect = false }
                 )
             }
         }
@@ -1231,13 +1250,17 @@ private struct ArenaRemoteItemView: View {
             showConnect = false
             return
         }
+        if showMeta {
+            withAnimation(ColosseumMotion.soft) { showMeta = false }
+            return
+        }
         onClose()
     }
 
     @ViewBuilder
     private var preview: some View {
         ZStack {
-            Color.black
+            ColosseumTheme.canvas
             if let item {
                 Group {
                     switch item.kind {
@@ -1246,22 +1269,22 @@ private struct ArenaRemoteItemView: View {
                         ZStack {
                             if let loopingPlayer {
                                 PlayerView(player: loopingPlayer.player)
-                                    .padding(24)
+                                    .padding(Space.s5)
                                     .transition(ColosseumMotion.mediaReveal)
                             } else {
                                 ShimmerBlockPlaceholder(square: false)
-                                    .padding(24)
+                                    .padding(Space.s5)
                                     .transition(.opacity)
                             }
                         }
                         .animation(ColosseumMotion.standard, value: loopingPlayer != nil)
                     } else if item.isAudio {
-                        VStack(spacing: 20) {
+                        VStack(spacing: Space.s4) {
                             Image(systemName: "waveform")
-                                .font(.system(size: 44, weight: .light))
+                                .font(.system(size: TypeScale.t8))
                                 .foregroundStyle(ColosseumTheme.secondaryText)
                             Text(item.displayTitle)
-                                .font(.title2)
+                                .font(.system(size: TypeScale.t4))
                                 .foregroundStyle(ColosseumTheme.primaryText)
                                 .multilineTextAlignment(.center)
                             if let loopingPlayer {
@@ -1270,7 +1293,7 @@ private struct ArenaRemoteItemView: View {
                                     .frame(height: 64)
                             }
                         }
-                        .padding(40)
+                        .padding(Space.s7)
                     } else if item.isAnimatedImage,
                               let urlString = item.imageURL ?? item.attachmentURL,
                               let url = URL(string: urlString) {
@@ -1298,21 +1321,21 @@ private struct ArenaRemoteItemView: View {
                 case .text:
                     ScrollView {
                         Text(item.textBody.isEmpty ? item.displayTitle : item.textBody)
-                            .font(.system(size: 18))
+                            .font(.system(size: TypeScale.t4))
                             .foregroundStyle(ColosseumTheme.primaryText)
                             .frame(maxWidth: 640, alignment: .leading)
-                            .padding(40)
+                            .padding(Space.s7)
                     }
                 case .channel:
-                    VStack(spacing: 12) {
+                    VStack(spacing: Space.s2) {
                         Text(item.displayTitle)
-                            .font(.title)
+                            .font(.system(size: TypeScale.t5))
                             .foregroundStyle(ColosseumTheme.remoteBoardTitle)
                         if let owner = item.channelOwnerName {
                             Text("by \(owner)").foregroundStyle(ColosseumTheme.secondaryText)
                         }
                         if let slug = item.channelSlug {
-                            Button("Browse Channel") {
+                            Button("Browse channel") {
                                 onBrowseBoard(ArenaBrowseTarget(
                                     slug: slug,
                                     title: item.title,
@@ -1334,59 +1357,49 @@ private struct ArenaRemoteItemView: View {
             if let item {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: Space.s3) {
                         if !item.notes.isEmpty {
                             Text(item.notes)
-                                .font(.system(size: 13))
+                                .font(.system(size: TypeScale.t2))
                                 .foregroundStyle(ColosseumTheme.secondaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
                             Text("notes…")
-                                .font(.system(size: 13))
+                                .font(.system(size: TypeScale.t2))
                                 .foregroundStyle(ColosseumTheme.tertiaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
                         if item.kind == .text, !item.textBody.isEmpty {
                             Text(item.textBody)
-                                .font(.system(size: 13))
+                                .font(.system(size: TypeScale.t2))
                                 .foregroundStyle(ColosseumTheme.primaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(8)
+                                .padding(Space.s2)
                                 .background(ColosseumTheme.surface)
-                                .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 0.5))
+                                .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
                         }
 
                         actionRow(for: item)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .overlay(alignment: .topTrailing) {
-                                if showMeta {
-                                    remoteMetaOverlay(for: item)
-                                        .fixedSize()
-                                        .offset(y: 36)
-                                        .transition(ColosseumMotion.fade)
-                                }
-                            }
-                            .zIndex(2)
 
                         if let statusMessage {
                             Text(statusMessage)
-                                .font(.caption)
+                                .font(.system(size: TypeScale.t0))
                                 .foregroundStyle(ColosseumTheme.secondaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
                         Text("Remote preview — not stored locally")
-                            .font(.caption)
+                            .font(.system(size: TypeScale.t0))
                             .foregroundStyle(ColosseumTheme.tertiaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 4)
+                            .padding(.top, Space.s1)
 
                             remoteConnectionsSection
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(16)
-                        .padding(.bottom, 24)
+                        .padding(Space.s3)
+                        .padding(.bottom, Space.s5)
                     }
                     .onChange(of: connectionFocusIndex) { _, index in
                         guard let index, remoteConnections.indices.contains(index) else { return }
@@ -1405,30 +1418,30 @@ private struct ArenaRemoteItemView: View {
     @ViewBuilder
     private var remoteConnectionsSection: some View {
         Text("Connections \(remoteConnections.count)")
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: TypeScale.t1))
             .foregroundStyle(ColosseumTheme.secondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 8)
+            .padding(.top, Space.s2)
 
         if isLoadingConnections && remoteConnections.isEmpty {
             ProgressView()
                 .controlSize(.small)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 4)
+                .padding(.top, Space.s1)
         } else if let connectionsError, remoteConnections.isEmpty {
             Text(connectionsError)
-                .font(.caption)
+                .font(.system(size: TypeScale.t0))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 4)
+                .padding(.top, Space.s1)
         } else if remoteConnections.isEmpty {
             Text("Not connected to any boards.")
-                .font(.caption)
+                .font(.system(size: TypeScale.t0))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 4)
+                .padding(.top, Space.s1)
         } else {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Space.s1) {
                 ForEach(Array(remoteConnections.enumerated()), id: \.element.id) { index, connection in
                     let isFocused = connectionFocusIndex == index
                     Button {
@@ -1436,7 +1449,7 @@ private struct ArenaRemoteItemView: View {
                         browse(connection)
                     } label: {
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: Space.nudge) {
                                 Text(connection.title)
                                     .foregroundStyle(
                                         isFocused
@@ -1453,15 +1466,15 @@ private struct ArenaRemoteItemView: View {
                                     .compactMap { $0 }
                                     .joined(separator: " · ")
                                 )
-                                .font(.caption)
+                                .font(.system(size: TypeScale.t0))
                                 .foregroundStyle(ColosseumTheme.tertiaryText)
                             }
                             Spacer(minLength: 0)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Space.s2)
+                        .padding(.vertical, Space.s1)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(isFocused ? Color.white.opacity(0.08) : Color.clear)
+                        .background(isFocused ? ColosseumTheme.surface : Color.clear)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -1471,17 +1484,35 @@ private struct ArenaRemoteItemView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 4)
+            .padding(.top, Space.s1)
         }
     }
 
     @ViewBuilder
     private func actionRow(for item: ArenaContentItem) -> some View {
-        HStack(spacing: 8) {
-            Button("Connect →") { showConnect = true }
-                .buttonStyle(ChromeButtonStyle(emphasized: true))
-                .pointingHandCursor()
+        // The icon cluster grows with the item's capabilities. Rather than let a
+        // full row squeeze the Connect label, drop the icons onto their own line.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Space.s2) {
+                connectButton
+                actionIcons(for: item)
+            }
+            VStack(alignment: .leading, spacing: Space.s2) {
+                connectButton
+                HStack(spacing: Space.s2) { actionIcons(for: item) }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
+    private var connectButton: some View {
+        Button("Connect →") { showConnect = true }
+            .buttonStyle(ChromeButtonStyle(emphasized: true))
+            .pointingHandCursor()
+    }
+
+    @ViewBuilder
+    private func actionIcons(for item: ArenaContentItem) -> some View {
             if let source = item.sourceURL ?? item.previewURL, let url = URL(string: source) {
                 Button {
                     NSWorkspace.shared.open(url)
@@ -1489,7 +1520,7 @@ private struct ArenaRemoteItemView: View {
                     Image(systemName: "link")
                 }
                 .buttonStyle(ChromeIconButtonStyle())
-                .help("Open Source URL")
+                .help("Open source URL")
                 .pointingHandCursor()
             }
 
@@ -1508,31 +1539,36 @@ private struct ArenaRemoteItemView: View {
                 }
             }
 
-            Button {
-                withAnimation(ColosseumMotion.soft) {
-                    showMeta.toggle()
-                }
-            } label: {
-                Image(systemName: "info.circle")
-            }
-            .buttonStyle(ChromeIconButtonStyle(active: showMeta))
-            .help("Metadata")
-            .pointingHandCursor()
-            .onHover { hovering in
-                withAnimation(ColosseumMotion.soft) {
-                    showMeta = hovering
-                }
-            }
+    }
 
-            Spacer(minLength: 0)
+    @ViewBuilder
+    private func metaButton(for item: ArenaContentItem) -> some View {
+        Button {
+            withAnimation(ColosseumMotion.soft) {
+                showMeta.toggle()
+            }
+        } label: {
+            Image(systemName: "info.circle")
+        }
+        .buttonStyle(ChromeIconButtonStyle(active: showMeta))
+        .help("Metadata")
+        .pointingHandCursor()
+        .overlay(alignment: .bottomLeading) {
+            if showMeta {
+                remoteMetaOverlay(for: item)
+                    .fixedSize()
+                    // Sits on top of the bar, left edge flush with the button.
+                    .offset(y: -(ChromeMetrics.controlHeight + Space.s2))
+                    .transition(ColosseumMotion.fade)
+            }
         }
     }
 
     @ViewBuilder
     private func remoteMetaOverlay(for item: ArenaContentItem) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Space.s2) {
             Text(item.displayTitle)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: TypeScale.t2))
                 .foregroundStyle(
                     item.kind == .channel
                         ? ColosseumTheme.remoteBoardTitle
@@ -1541,16 +1577,16 @@ private struct ArenaRemoteItemView: View {
 
             VStack(spacing: 0) {
                 metaRow(
-                    "Content Type",
+                    "Content type",
                     item.isVideo ? "video" : item.isAudio ? "audio" : item.typeName.lowercased()
                 )
                 if item.imageWidth > 0, item.imageHeight > 0 {
                     metaRow("Dimensions", "\(item.imageWidth) × \(item.imageHeight)")
                 }
                 if item.imageBytes > 0 {
-                    metaRow("File Size", ColosseumFormatters.byteCount(item.imageBytes))
+                    metaRow("File size", ColosseumFormatters.byteCount(item.imageBytes))
                 } else if item.attachmentBytes > 0 {
-                    metaRow("File Size", ColosseumFormatters.byteCount(item.attachmentBytes))
+                    metaRow("File size", ColosseumFormatters.byteCount(item.attachmentBytes))
                 }
                 if item.kind == .channel {
                     metaRow("Blocks", "\(item.channelBlockCount)")
@@ -1563,43 +1599,43 @@ private struct ArenaRemoteItemView: View {
                 }
             }
         }
-        .padding(12)
+        .padding(Space.s3)
         .frame(width: 260, alignment: .leading)
         .background(ColosseumTheme.elevated)
         .overlay(Rectangle().stroke(ColosseumTheme.border, lineWidth: 1))
-        .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
+        .floatingPanelShadow()
         .allowsHitTesting(true)
     }
 
     private func metaRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .top) {
             Text(label)
-                .font(.system(size: 12))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.tertiaryText)
                 .frame(width: 96, alignment: .leading)
             Text(value)
-                .font(.system(size: 12))
+                .font(.system(size: TypeScale.t1))
                 .foregroundStyle(ColosseumTheme.primaryText)
                 .textSelection(.enabled)
                 .lineLimit(3)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, Space.s2)
         .overlay(alignment: .bottom) {
             Rectangle().fill(ColosseumTheme.border).frame(height: 0.5)
         }
     }
 
     private func linkPlaceholder(_ item: ArenaContentItem) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Space.s3) {
             Image(systemName: "link")
-                .font(.system(size: 36, weight: .light))
+                .font(.system(size: TypeScale.t7))
                 .foregroundStyle(ColosseumTheme.secondaryText)
             Text(item.displayTitle)
-                .font(.title2)
+                .font(.system(size: TypeScale.t4))
                 .foregroundStyle(ColosseumTheme.primaryText)
             if let source = item.sourceURL, let url = URL(string: source) {
-                Button("Open Link") { NSWorkspace.shared.open(url) }
+                Button("Open link") { NSWorkspace.shared.open(url) }
                     .buttonStyle(ChromeButtonStyle(emphasized: true))
                     .pointingHandCursor()
             }

@@ -48,9 +48,9 @@ enum BoardContentSearch {
     }
 
     /// Case-insensitive attributed preview with matching spans emphasized (grid note line).
-    static func highlightedPreview(_ text: String, query: String, fontSize: CGFloat = 13) -> AttributedString {
+    static func highlightedPreview(_ text: String, query: String, fontSize: CGFloat = TypeScale.t2) -> AttributedString {
         var output = AttributedString(text.isEmpty ? " " : text)
-        output.font = .system(size: fontSize, weight: .regular)
+        output.font = .system(size: fontSize)
         output.foregroundColor = ColosseumTheme.secondaryText
 
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -63,7 +63,7 @@ enum BoardContentSearch {
             if found.location == NSNotFound { break }
             if let swiftRange = Range(found, in: text),
                let attrRange = Range(swiftRange, in: output) {
-                output[attrRange].font = .system(size: fontSize, weight: .semibold)
+                output[attrRange].font = .system(size: fontSize, weight: .bold)
                 output[attrRange].foregroundColor = ColosseumTheme.primaryText
             }
             let next = found.location + max(found.length, 1)

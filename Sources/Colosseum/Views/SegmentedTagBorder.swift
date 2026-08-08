@@ -3,7 +3,7 @@ import SwiftUI
 /// Draws a rectangular border, optionally segmented into per-tag colors around the perimeter.
 struct SegmentedTagBorder: View {
     let colors: [Color]
-    var lineWidth: CGFloat = 1.25
+    var lineWidth: CGFloat = 1
 
     var body: some View {
         Canvas { context, size in
@@ -112,7 +112,7 @@ extension View {
         overlay {
             if isActive {
                 Rectangle()
-                    .stroke(Color.white.opacity(0.85), lineWidth: lineWidth)
+                    .stroke(ColosseumTheme.selectionRingColor, lineWidth: lineWidth)
                     .padding(-(gap + lineWidth / 2))
                     .allowsHitTesting(false)
             }
